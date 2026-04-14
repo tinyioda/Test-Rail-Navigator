@@ -1,0 +1,256 @@
+/* ===== Brand palette ===== */
+:root {
+  --brand-teal: #00A3AD;
+  --brand-teal-hover: #008891;
+  --brand-teal-rgb: 0, 163, 173;
+  --brand-dark: #1a1a1a;
+  --brand-dark-hover: #333333;
+  --bs-link-color: #00A3AD;
+  --bs-link-hover-color: #008891;
+}
+
+/* Success = brand teal (create actions, active / passed states) */
+.btn-success {
+  --bs-btn-bg: var(--brand-teal);
+  --bs-btn-border-color: var(--brand-teal);
+  --bs-btn-hover-bg: var(--brand-teal-hover);
+  --bs-btn-hover-border-color: var(--brand-teal-hover);
+  --bs-btn-active-bg: var(--brand-teal-hover);
+  --bs-btn-active-border-color: var(--brand-teal-hover);
+  --bs-btn-disabled-bg: var(--brand-teal);
+  --bs-btn-disabled-border-color: var(--brand-teal);
+}
+
+.btn-outline-success {
+  --bs-btn-color: var(--brand-teal);
+  --bs-btn-border-color: var(--brand-teal);
+  --bs-btn-hover-bg: var(--brand-teal);
+  --bs-btn-hover-border-color: var(--brand-teal);
+  --bs-btn-active-bg: var(--brand-teal-hover);
+  --bs-btn-active-border-color: var(--brand-teal-hover);
+}
+
+.bg-success {
+  background-color: var(--brand-teal) !important;
+}
+
+.text-success {
+  color: var(--brand-teal) !important;
+}
+
+.border-success {
+  border-color: var(--brand-teal) !important;
+}
+
+.alert-success {
+  --bs-alert-bg: #e0f5f6;
+  --bs-alert-border-color: #a3dfe3;
+  --bs-alert-color: #006b70;
+  --bs-alert-link-color: #005357;
+}
+
+/* Primary = brand dark (navigation / view actions) */
+.btn-primary {
+  --bs-btn-bg: var(--brand-dark);
+  --bs-btn-border-color: var(--brand-dark);
+  --bs-btn-hover-bg: var(--brand-dark-hover);
+  --bs-btn-hover-border-color: var(--brand-dark-hover);
+  --bs-btn-active-bg: #000;
+  --bs-btn-active-border-color: #000;
+  --bs-btn-disabled-bg: var(--brand-dark);
+  --bs-btn-disabled-border-color: var(--brand-dark);
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--brand-dark);
+  --bs-btn-border-color: var(--brand-dark);
+  --bs-btn-hover-bg: var(--brand-dark);
+  --bs-btn-hover-border-color: var(--brand-dark);
+  --bs-btn-active-bg: #000;
+  --bs-btn-active-border-color: #000;
+}
+
+.bg-primary {
+  background-color: var(--brand-dark) !important;
+}
+
+/* Info = teal accent (upcoming badges, manage button) */
+.btn-outline-info {
+  --bs-btn-color: var(--brand-teal);
+  --bs-btn-border-color: var(--brand-teal);
+  --bs-btn-hover-bg: var(--brand-teal);
+  --bs-btn-hover-border-color: var(--brand-teal);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-active-bg: var(--brand-teal-hover);
+  --bs-btn-active-border-color: var(--brand-teal-hover);
+}
+
+/* Active list-group items = brand teal */
+.list-group-item.active {
+  background-color: var(--brand-teal);
+  border-color: var(--brand-teal);
+}
+
+/* Content links = brand teal */
+main a:not(.btn):not(.list-group-item) {
+  color: var(--brand-teal);
+}
+
+main a:not(.btn):not(.list-group-item):hover {
+  color: var(--brand-teal-hover);
+}
+
+/* ===== Base styles ===== */
+html {
+  font-size: 14px;
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
+  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem var(--brand-teal);
+}
+
+html {
+  position: relative;
+  min-height: 100%;
+}
+
+body {
+  margin-bottom: 60px;
+}
+
+/* Ensure data tables use full width and scroll horizontally on small screens */
+.table-responsive-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Consistent column widths for milestone Test Plans and Test Runs tables */
+.milestone-table {
+  table-layout: fixed;
+  white-space: nowrap;
+}
+
+.milestone-table th:nth-child(1),
+.milestone-table td:nth-child(1) {
+  width: 5%;
+}
+
+.milestone-table th:nth-child(2),
+.milestone-table td:nth-child(2) {
+  width: 30%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.milestone-table th:nth-child(3),
+.milestone-table td:nth-child(3) {
+  width: 9%;
+}
+
+.milestone-table th:nth-child(4),
+.milestone-table td:nth-child(4),
+.milestone-table th:nth-child(5),
+.milestone-table td:nth-child(5),
+.milestone-table th:nth-child(6),
+.milestone-table td:nth-child(6),
+.milestone-table th:nth-child(7),
+.milestone-table td:nth-child(7) {
+  width: 9%;
+}
+
+.milestone-table th:nth-child(8),
+.milestone-table td:nth-child(8) {
+  width: 20%;
+}
+
+.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
+  color: var(--bs-secondary-color);
+  text-align: end;
+}
+
+.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
+  text-align: start;
+}
+
+/* Project cards */
+.project-card {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
+}
+
+.project-card:hover {
+  box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .1);
+  transform: translateY(-2px);
+}
+
+.project-description {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+}
+
+/* Left-panel section labels (e.g. "Open 4", "Closed 2") */
+.panel-section-label {
+  background-color: #f0f0f0;
+  border-bottom: 1px solid #dee2e6;
+  padding: 0.5rem 1rem;
+  margin: 0;
+  letter-spacing: 0.05em;
+}
+
+/* Shared empty state */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+/* ===== Plan summary pie chart ===== */
+.pie-chart {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  margin: 0 auto;
+}
+
+.pie-chart-legend {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.pie-chart-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+  font-size: 0.875rem;
+}
+
+.pie-chart-legend .swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Confidence window */
+.confidence-score {
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.confidence-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}

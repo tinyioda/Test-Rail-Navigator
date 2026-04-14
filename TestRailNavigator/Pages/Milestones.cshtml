@@ -1,0 +1,258 @@
+@page "{projectId:int}"
+@model MilestonesModel
+@{
+    ViewData["Title"] = $"Milestones - {Model.Project?.Name}";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-page="/Index">Projects</a></li>
+        <li class="breadcrumb-item"><a asp-page="/Project" asp-route-projectId="@Model.Project?.Id">@Model.Project?.Name</a></li>
+        <li class="breadcrumb-item active">Milestones</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1>Milestones</h1>
+        <h5 class="text-muted mb-0">@Model.Project?.Name</h5>
+    </div>
+    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createMilestoneModal">
+        + New Milestone
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @Model.SuccessMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @Model.ErrorMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (Model.Milestones.Count == 0)
+{
+    <div class="empty-state">
+        <p class="text-muted mb-0">No milestones found.</p>
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Start Date</th>
+                <th>Due Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var milestone in Model.Milestones)
+            {
+                <tr>
+                    <td>@milestone.Id</td>
+                    <td>@milestone.Name</td>
+                    <td>
+                        @if (milestone.IsCompleted)
+                        {
+                            <span class="badge bg-secondary">Completed</span>
+                        }
+                        else if (milestone.IsStarted)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-info">Upcoming</span>
+                        }
+                    </td>
+                    <td>
+                        @if (milestone.StartOn.HasValue)
+                        {
+                            @DateTimeOffset.FromUnixTimeSeconds(milestone.StartOn.Value).UtcDateTime.ToString("yyyy-MM-dd")
+                        }
+                        else
+                        {
+                            <span class="text-muted">—</span>
+                        }
+                    </td>
+                    <td>
+                        @if (milestone.DueOn.HasValue)
+                        {
+                            @DateTimeOffset.FromUnixTimeSeconds(milestone.DueOn.Value).UtcDateTime.ToString("yyyy-MM-dd")
+                        }
+                        else
+                        {
+                            <span class="text-muted">—</span>
+                        }
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                data-bs-toggle="modal"
+                                data-bs-target="#editMilestoneModal"
+                                data-id="@milestone.Id"
+                                data-name="@milestone.Name"
+                                data-description="@milestone.Description"
+                                data-start="@(milestone.StartOn.HasValue ? DateTimeOffset.FromUnixTimeSeconds(milestone.StartOn.Value).UtcDateTime.ToString("yyyy-MM-dd") : "")"
+                                data-due="@(milestone.DueOn.HasValue ? DateTimeOffset.FromUnixTimeSeconds(milestone.DueOn.Value).UtcDateTime.ToString("yyyy-MM-dd") : "")"
+                                data-completed="@milestone.IsCompleted.ToString().ToLowerInvariant()">
+                            Edit
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                data-bs-toggle="modal"
+                                data-bs-target="#deleteMilestoneModal"
+                                data-id="@milestone.Id"
+                                data-name="@milestone.Name">
+                            Delete
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    </div>
+}
+
+<!-- Create Milestone Modal -->
+<div class="modal fade" id="createMilestoneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="Create" asp-route-projectId="@Model.ProjectId" asp-antiforgery="true">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Milestone</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="MilestoneName" class="form-label">Name *</label>
+                        <input type="text" name="MilestoneName" id="createName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="MilestoneDescription" class="form-label">Description</label>
+                        <textarea name="MilestoneDescription" id="createDescription" class="form-control" rows="3"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="MilestoneStartDate" class="form-label">Start Date</label>
+                            <input type="date" name="MilestoneStartDate" id="createStartDate" class="form-control" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="MilestoneDueDate" class="form-label">Due Date</label>
+                            <input type="date" name="MilestoneDueDate" id="createDueDate" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Create Milestone</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Milestone Modal -->
+<div class="modal fade" id="editMilestoneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="Edit" asp-route-projectId="@Model.ProjectId" asp-antiforgery="true">
+                <input type="hidden" name="MilestoneId" id="editId" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Milestone</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editName" class="form-label">Name *</label>
+                        <input type="text" name="MilestoneName" id="editName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="editDescription" class="form-label">Description</label>
+                        <textarea name="MilestoneDescription" id="editDescription" class="form-control" rows="3"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editStartDate" class="form-label">Start Date</label>
+                            <input type="date" name="MilestoneStartDate" id="editStartDate" class="form-control" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editDueDate" class="form-label">Due Date</label>
+                            <input type="date" name="MilestoneDueDate" id="editDueDate" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" name="MilestoneIsCompleted" value="true" id="editIsCompleted" class="form-check-input" />
+                        <label for="editIsCompleted" class="form-check-label">Mark as completed</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Milestone Modal -->
+<div class="modal fade" id="deleteMilestoneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="Delete" asp-route-projectId="@Model.ProjectId" asp-antiforgery="true">
+                <input type="hidden" name="MilestoneId" id="deleteId" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete Milestone</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete milestone <strong id="deleteName"></strong>?</p>
+                    <p class="text-danger small">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Populate the Edit modal fields from data attributes on the trigger button
+        const editModal = document.getElementById('editMilestoneModal');
+        if (editModal) {
+            editModal.addEventListener('show.bs.modal', function (event) {
+                const btn = event.relatedTarget;
+                editModal.querySelector('#editId').value = btn.getAttribute('data-id');
+                editModal.querySelector('#editName').value = btn.getAttribute('data-name');
+                editModal.querySelector('#editDescription').value = btn.getAttribute('data-description') || '';
+                editModal.querySelector('#editStartDate').value = btn.getAttribute('data-start') || '';
+                editModal.querySelector('#editDueDate').value = btn.getAttribute('data-due') || '';
+                editModal.querySelector('#editIsCompleted').checked = btn.getAttribute('data-completed') === 'true';
+            });
+        }
+
+        // Populate the Delete modal fields from data attributes on the trigger button
+        const deleteModal = document.getElementById('deleteMilestoneModal');
+        if (deleteModal) {
+            deleteModal.addEventListener('show.bs.modal', function (event) {
+                const btn = event.relatedTarget;
+                deleteModal.querySelector('#deleteId').value = btn.getAttribute('data-id');
+                deleteModal.querySelector('#deleteName').textContent = btn.getAttribute('data-name');
+            });
+        }
+    </script>
+}

@@ -1,0 +1,54 @@
+@page
+@model SetupModel
+@{
+    ViewData["Title"] = "Setup TestRail Connection";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-page="/Index">Projects</a></li>
+        <li class="breadcrumb-item active">Setup</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">Connect to TestRail</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Enter your TestRail credentials to get started.</p>
+
+                @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+                {
+                    <div class="alert alert-danger">@Model.ErrorMessage</div>
+                }
+
+                <form method="post">
+                    <div class="mb-3">
+                        <label asp-for="Settings.BaseUrl" class="form-label">TestRail URL</label>
+                        <input asp-for="Settings.BaseUrl" class="form-control" placeholder="https://yourcompany.testrail.io" />
+                        <div class="form-text">The URL of your TestRail instance</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Settings.Username" class="form-label">Email</label>
+                        <input asp-for="Settings.Username" type="email" class="form-control" placeholder="you@example.com" />
+                        <div class="form-text">Your TestRail account email</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Settings.ApiKey" class="form-label">API Key</label>
+                        <input asp-for="Settings.ApiKey" type="password" class="form-control" />
+                        <div class="form-text">
+                            Generate an API key in TestRail: My Settings &rarr; API Keys
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">Connect</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

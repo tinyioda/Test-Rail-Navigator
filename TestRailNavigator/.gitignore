@@ -1,0 +1,18 @@
+# TestRail credentials - never commit
+testrail-settings.json
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.log
+
+# Visual Studio
+.vs/
+*.rsuser
+launchSettings.json
+
+# User secrets
+secrets.json

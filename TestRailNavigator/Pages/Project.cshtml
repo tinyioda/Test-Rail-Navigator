@@ -1,0 +1,398 @@
+@page "{projectId:int}"
+@model ProjectModel
+@{
+    ViewData["Title"] = Model.Project?.Name ?? "Project";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-page="/Index">Projects</a></li>
+        @if (Model.SelectedMilestone is not null)
+        {
+            <li class="breadcrumb-item"><a asp-page="/Project" asp-route-projectId="@Model.Project?.Id">@Model.Project?.Name</a></li>
+            <li class="breadcrumb-item active">@Model.SelectedMilestone.Name</li>
+        }
+        else
+        {
+            <li class="breadcrumb-item active">@Model.Project?.Name</li>
+        }
+    </ol>
+</nav>
+
+<h1>@Model.Project?.Name</h1>
+@if (!string.IsNullOrEmpty(Model.Project?.Announcement))
+{
+    <p class="text-muted">@Model.Project.Announcement</p>
+}
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @Model.SuccessMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @Model.ErrorMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (Model.Project is not null)
+{
+    <div class="row">
+        <!-- Left Panel: Milestones -->
+        <div class="col-lg-3 col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Milestones</h6>
+                    <a asp-page="/Milestones" asp-route-projectId="@Model.Project.Id" class="btn btn-sm btn-outline-info">
+                        Manage
+                    </a>
+                </div>
+                <div class="card-body p-0" style="overflow-y: auto; max-height: 70vh;">
+                    <!-- Open Milestones -->
+                    <div class="panel-section-label">
+                        <h6 class="text-uppercase text-muted small fw-bold mb-0">
+                            Open
+                            <span class="badge bg-success ms-1">@Model.OpenMilestones.Count</span>
+                        </h6>
+                    </div>
+                    @if (Model.OpenMilestones.Count == 0)
+                    {
+                        <p class="text-muted small px-3 pb-2">No open milestones.</p>
+                    }
+                    else
+                    {
+                        <div class="list-group list-group-flush">
+                            @foreach (var milestone in Model.OpenMilestones)
+                            {
+                                var isSelected = Model.MilestoneId == milestone.Id;
+                                <a asp-page="/Project" asp-route-projectId="@Model.Project.Id" asp-route-milestoneId="@milestone.Id"
+                                   class="list-group-item list-group-item-action px-3 py-2 @(isSelected ? "active" : "")">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <div class="fw-semibold">@milestone.Name</div>
+                                            @if (milestone.DueOn.HasValue)
+                                            {
+                                                <small class="@(isSelected ? "text-white-50" : "text-muted")">
+                                                    Due @DateTimeOffset.FromUnixTimeSeconds(milestone.DueOn.Value).UtcDateTime.ToString("yyyy-MM-dd")
+                                                </small>
+                                            }
+                                        </div>
+                                        @if (milestone.IsStarted)
+                                        {
+                                            <span class="badge @(isSelected ? "bg-light text-dark" : "bg-success")">Active</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge @(isSelected ? "bg-light text-dark" : "bg-info")">Upcoming</span>
+                                        }
+                                    </div>
+                                </a>
+                            }
+                        </div>
+                    }
+
+                    @if (Model.ClosedMilestones.Count > 0)
+                    {
+                        <hr class="my-0" />
+
+                        <!-- Closed Milestones -->
+                        <div class="panel-section-label">
+                            <h6 class="text-uppercase text-muted small fw-bold mb-0">
+                                Closed
+                                <span class="badge bg-secondary ms-1">@Model.ClosedMilestones.Count</span>
+                            </h6>
+                        </div>
+                        <div class="list-group list-group-flush">
+                            @foreach (var milestone in Model.ClosedMilestones)
+                            {
+                                var isSelected = Model.MilestoneId == milestone.Id;
+                                <a asp-page="/Project" asp-route-projectId="@Model.Project.Id" asp-route-milestoneId="@milestone.Id"
+                                   class="list-group-item list-group-item-action px-3 py-2 @(isSelected ? "active" : "")">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <div class="@(isSelected ? "" : "text-muted")">@milestone.Name</div>
+                                            @if (milestone.CompletedOn.HasValue)
+                                            {
+                                                <small class="@(isSelected ? "text-white-50" : "text-muted")">
+                                                    Completed @DateTimeOffset.FromUnixTimeSeconds(milestone.CompletedOn.Value).UtcDateTime.ToString("yyyy-MM-dd")
+                                                </small>
+                                            }
+                                        </div>
+                                        <span class="badge @(isSelected ? "bg-light text-dark" : "bg-secondary")">Completed</span>
+                                    </div>
+                                </a>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: Milestone Content -->
+        <div class="col-lg-9 col-md-8">
+            @if (Model.SelectedMilestone is null)
+            {
+                <div class="d-flex align-items-center justify-content-center h-100">
+                    <div class="text-center text-muted">
+                        <h3><i class="bi bi-arrow-left-circle"></i></h3>
+                        <h4>Select a Milestone</h4>
+                        <p>Choose a milestone from the panel on the left to view its test plans and test runs.</p>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <h3 class="mb-4">@Model.SelectedMilestone.Name</h3>
+
+                <!-- Test Plans Section -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0">Test Plans</h4>
+                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createPlanModal">
+                        + New Test Plan
+                    </button>
+                </div>
+
+                @if (Model.MilestonePlans.Count == 0)
+                {
+                    <p class="text-muted">No test plans found for this milestone.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                    <table class="table table-striped milestone-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th>Passed</th>
+                                <th>Failed</th>
+                                <th>Blocked</th>
+                                <th>Untested</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var plan in Model.MilestonePlans)
+                            {
+                                <tr>
+                                    <td>@plan.Id</td>
+                                    <td>
+                                        <a asp-page="/PlanDetail" asp-route-planId="@plan.Id">@plan.Name</a>
+                                    </td>
+                                    <td>
+                                        @if (plan.IsCompleted)
+                                        {
+                                            <span class="badge bg-secondary">Completed</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-success">Active</span>
+                                        }
+                                    </td>
+                                    <td><span class="text-success">@plan.PassedCount</span></td>
+                                    <td><span class="text-danger">@plan.FailedCount</span></td>
+                                    <td><span class="text-warning">@plan.BlockedCount</span></td>
+                                    <td><span class="text-muted">@plan.UntestedCount</span></td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editPlanModal"
+                                                data-id="@plan.Id"
+                                                data-name="@plan.Name"
+                                                data-description="@plan.Description">
+                                            Edit
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#deletePlanModal"
+                                                data-id="@plan.Id"
+                                                data-name="@plan.Name">
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    </div>
+                }
+
+                <hr class="my-4" />
+
+                <!-- Test Runs Section -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0">Test Runs</h4>
+                </div>
+
+                @if (Model.MilestoneRuns.Count == 0)
+                {
+                    <p class="text-muted">No test runs found for this milestone.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                    <table class="table table-striped milestone-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th>Passed</th>
+                                <th>Failed</th>
+                                <th>Blocked</th>
+                                <th>Untested</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var run in Model.MilestoneRuns)
+                            {
+                                <tr>
+                                    <td>@run.Id</td>
+                                    <td>
+                                        <a asp-page="/Tests" asp-route-runId="@run.Id">@run.Name</a>
+                                    </td>
+                                    <td>
+                                        @if (run.IsCompleted)
+                                        {
+                                            <span class="badge bg-secondary">Completed</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-success">Active</span>
+                                        }
+                                    </td>
+                                    <td><span class="text-success">@run.PassedCount</span></td>
+                                    <td><span class="text-danger">@run.FailedCount</span></td>
+                                    <td><span class="text-warning">@run.BlockedCount</span></td>
+                                    <td><span class="text-muted">@run.UntestedCount</span></td>
+                                    <td>
+                                        <a asp-page="/Tests" asp-route-runId="@run.Id" class="btn btn-sm btn-outline-primary">
+                                            View Tests
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+}
+
+<!-- Create Test Plan Modal -->
+<div class="modal fade" id="createPlanModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="CreatePlan" asp-route-projectId="@Model.Project?.Id" asp-route-milestoneId="@Model.MilestoneId" asp-antiforgery="true">
+                <input type="hidden" name="MilestoneId" value="@Model.MilestoneId" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Test Plan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="createPlanName" class="form-label">Name *</label>
+                        <input type="text" name="PlanName" id="createPlanName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="createPlanDescription" class="form-label">Description</label>
+                        <textarea name="PlanDescription" id="createPlanDescription" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Create Plan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Test Plan Modal -->
+<div class="modal fade" id="editPlanModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="EditPlan" asp-route-projectId="@Model.Project?.Id" asp-route-milestoneId="@Model.MilestoneId" asp-antiforgery="true">
+                <input type="hidden" name="PlanId" id="editPlanId" />
+                <input type="hidden" name="MilestoneId" value="@Model.MilestoneId" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Test Plan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editPlanName" class="form-label">Name *</label>
+                        <input type="text" name="PlanName" id="editPlanName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="editPlanDescription" class="form-label">Description</label>
+                        <textarea name="PlanDescription" id="editPlanDescription" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Test Plan Modal -->
+<div class="modal fade" id="deletePlanModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="DeletePlan" asp-route-projectId="@Model.Project?.Id" asp-route-milestoneId="@Model.MilestoneId" asp-antiforgery="true">
+                <input type="hidden" name="PlanId" id="deletePlanId" />
+                <input type="hidden" name="MilestoneId" value="@Model.MilestoneId" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete Test Plan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete test plan <strong id="deletePlanName"></strong>?</p>
+                    <p class="text-danger small">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Populate the Edit Plan modal fields from data attributes on the trigger button
+        const editPlanModal = document.getElementById('editPlanModal');
+        if (editPlanModal) {
+            editPlanModal.addEventListener('show.bs.modal', function (event) {
+                const btn = event.relatedTarget;
+                editPlanModal.querySelector('#editPlanId').value = btn.getAttribute('data-id');
+                editPlanModal.querySelector('#editPlanName').value = btn.getAttribute('data-name');
+                editPlanModal.querySelector('#editPlanDescription').value = btn.getAttribute('data-description') || '';
+            });
+        }
+
+        // Populate the Delete Plan modal fields from data attributes on the trigger button
+        const deletePlanModal = document.getElementById('deletePlanModal');
+        if (deletePlanModal) {
+            deletePlanModal.addEventListener('show.bs.modal', function (event) {
+                const btn = event.relatedTarget;
+                deletePlanModal.querySelector('#deletePlanId').value = btn.getAttribute('data-id');
+                deletePlanModal.querySelector('#deletePlanName').textContent = btn.getAttribute('data-name');
+            });
+        }
+    </script>
+}

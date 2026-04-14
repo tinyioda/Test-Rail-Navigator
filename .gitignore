@@ -1,0 +1,19 @@
+# TestRail credentials - never commit
+**/testrail-settings.json
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.log
+
+# Visual Studio
+.vs/
+*.rsuser
+**/Properties/launchSettings.json
+
+# OS
+Thumbs.db
+.DS_Store

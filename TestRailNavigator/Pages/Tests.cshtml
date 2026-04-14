@@ -1,0 +1,572 @@
+@page "{runId:int}"
+@model TestsModel
+@{
+    ViewData["Title"] = $"Tests - {Model.Run?.Name}";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-page="/Index">Projects</a></li>
+        <li class="breadcrumb-item"><a asp-page="/Project" asp-route-projectId="@Model.ProjectId">@(Model.Project?.Name ?? "Project")</a></li>
+        @if (Model.Milestone is not null)
+        {
+            <li class="breadcrumb-item"><a asp-page="/Project" asp-route-projectId="@Model.ProjectId" asp-route-milestoneId="@Model.Milestone.Id">@Model.Milestone.Name</a></li>
+        }
+        <li class="breadcrumb-item active">@Model.Run?.Name</li>
+    </ol>
+</nav>
+
+<h1>@Model.Run?.Name</h1>
+@if (Model.Milestone is not null)
+{
+    <p class="text-muted">@Model.Milestone.Name</p>
+}
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @Model.SuccessMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @Model.ErrorMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="row">
+    <!-- Left Panel: Milestone Plans & Runs -->
+    @if (Model.Milestone is not null)
+    {
+        <div class="col-lg-3 col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">@Model.Milestone.Name</h6>
+                    <a asp-page="/Project" asp-route-projectId="@Model.ProjectId" asp-route-milestoneId="@Model.Milestone.Id" class="btn btn-sm btn-outline-info">
+                        Overview
+                    </a>
+                </div>
+                <div class="card-body p-0" style="overflow-y: auto; max-height: 70vh;">
+                    <!-- Open Test Plans -->
+                    <div class="panel-section-label">
+                        <h6 class="text-uppercase text-muted small fw-bold mb-0">
+                            Open Plans
+                            <span class="badge bg-success ms-1">@Model.OpenPlans.Count</span>
+                        </h6>
+                    </div>
+                    @if (Model.OpenPlans.Count == 0)
+                    {
+                        <p class="text-muted small px-3 pb-2">No open test plans.</p>
+                    }
+                    else
+                    {
+                        <div class="list-group list-group-flush">
+                            @foreach (var plan in Model.OpenPlans)
+                            {
+                                <a asp-page="/PlanDetail" asp-route-planId="@plan.Id"
+                                   class="list-group-item list-group-item-action px-3 py-2">
+                                    <div class="fw-semibold small">@plan.Name</div>
+                                </a>
+                            }
+                        </div>
+                    }
+
+                    <!-- Open Test Runs -->
+                    <div class="panel-section-label">
+                        <h6 class="text-uppercase text-muted small fw-bold mb-0">
+                            Open Runs
+                            <span class="badge bg-success ms-1">@Model.OpenRuns.Count</span>
+                        </h6>
+                    </div>
+                    @if (Model.OpenRuns.Count == 0)
+                    {
+                        <p class="text-muted small px-3 pb-2">No open test runs.</p>
+                    }
+                    else
+                    {
+                        <div class="list-group list-group-flush">
+                            @foreach (var run in Model.OpenRuns)
+                            {
+                                var isSelected = run.Id == Model.Run?.Id;
+                                <a asp-page="/Tests" asp-route-runId="@run.Id"
+                                   class="list-group-item list-group-item-action px-3 py-2 @(isSelected ? "active" : "")">
+                                    <div class="fw-semibold small">@run.Name</div>
+                                </a>
+                            }
+                        </div>
+                    }
+
+                    @if (Model.ClosedPlans.Count > 0 || Model.ClosedRuns.Count > 0)
+                    {
+                        <hr class="my-0" />
+                    }
+
+                    @if (Model.ClosedPlans.Count > 0)
+                    {
+                        <!-- Closed Test Plans -->
+                        <div class="panel-section-label">
+                            <h6 class="text-uppercase text-muted small fw-bold mb-0">
+                                Closed Plans
+                                <span class="badge bg-secondary ms-1">@Model.ClosedPlans.Count</span>
+                            </h6>
+                        </div>
+                        <div class="list-group list-group-flush">
+                            @foreach (var plan in Model.ClosedPlans)
+                            {
+                                <a asp-page="/PlanDetail" asp-route-planId="@plan.Id"
+                                   class="list-group-item list-group-item-action px-3 py-2">
+                                    <div class="text-muted small">@plan.Name</div>
+                                </a>
+                            }
+                        </div>
+                    }
+
+                    @if (Model.ClosedRuns.Count > 0)
+                    {
+                        <!-- Closed Test Runs -->
+                        <div class="panel-section-label">
+                            <h6 class="text-uppercase text-muted small fw-bold mb-0">
+                                Closed Runs
+                                <span class="badge bg-secondary ms-1">@Model.ClosedRuns.Count</span>
+                            </h6>
+                        </div>
+                        <div class="list-group list-group-flush">
+                            @foreach (var run in Model.ClosedRuns)
+                            {
+                                var isSelected = run.Id == Model.Run?.Id;
+                                <a asp-page="/Tests" asp-route-runId="@run.Id"
+                                   class="list-group-item list-group-item-action px-3 py-2 @(isSelected ? "active" : "")">
+                                    <div class="@(isSelected ? "" : "text-muted") small">@run.Name</div>
+                                </a>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Right Side: Run Tests -->
+    <div class="@(Model.Milestone is not null ? "col-lg-9 col-md-8" : "col-12")">
+        @if (Model.Run is not null)
+        {
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">Tests</h4>
+                @if (!Model.Run.IsCompleted)
+                {
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#copyTestsModal">
+                            <i class="bi bi-copy"></i> Copy From Run
+                        </button>
+                        <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#addExistingModal">
+                            <i class="bi bi-plus-square"></i> Add Existing
+                        </button>
+                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addTestModal">
+                            + New Test
+                        </button>
+                    </div>
+                }
+            </div>
+
+            var totalTests = Model.Run.PassedCount + Model.Run.FailedCount + Model.Run.BlockedCount + Model.Run.UntestedCount;
+            var executedTests = Model.Run.PassedCount + Model.Run.FailedCount + Model.Run.BlockedCount;
+
+            @if (totalTests > 0)
+            {
+                var passedPct = (double)Model.Run.PassedCount / totalTests * 100;
+                var failedPct = (double)Model.Run.FailedCount / totalTests * 100;
+                var blockedPct = (double)Model.Run.BlockedCount / totalTests * 100;
+                var untestedPct = (double)Model.Run.UntestedCount / totalTests * 100;
+
+                var passRate = executedTests > 0
+                    ? (double)Model.Run.PassedCount / executedTests * 100
+                    : 0;
+                var completionRate = (double)executedTests / totalTests * 100;
+
+                var confidenceLevel = passRate switch
+                {
+                    >= 90 => "High",
+                    >= 70 => "Medium",
+                    >= 50 => "Low",
+                    _ => "Critical"
+                };
+                var confidenceColor = passRate switch
+                {
+                    >= 90 => "text-success",
+                    >= 70 => "text-warning",
+                    >= 50 => "text-danger",
+                    _ => "text-danger"
+                };
+                var confidenceBg = passRate switch
+                {
+                    >= 90 => "bg-success",
+                    >= 70 => "bg-warning",
+                    >= 50 => "bg-danger",
+                    _ => "bg-danger"
+                };
+
+                <div class="row mb-4">
+                    <!-- Pie Chart Card -->
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h6 class="mb-0">@Model.Run?.Name — Status</h6>
+                            </div>
+                            <div class="card-body d-flex align-items-center justify-content-center gap-4">
+                                <div class="pie-chart"
+                                     style="background: conic-gradient(
+                                         var(--brand-teal) 0% @($"{passedPct:F1}")%,
+                                         #dc3545 @($"{passedPct:F1}")% @($"{passedPct + failedPct:F1}")%,
+                                         #ffc107 @($"{passedPct + failedPct:F1}")% @($"{passedPct + failedPct + blockedPct:F1}")%,
+                                         #6c757d @($"{passedPct + failedPct + blockedPct:F1}")% 100%
+                                     );">
+                                </div>
+                                <ul class="pie-chart-legend">
+                                    <li>
+                                        <span class="swatch" style="background-color: var(--brand-teal);"></span>
+                                        Passed — @Model.Run.PassedCount (@($"{passedPct:F0}")%)
+                                    </li>
+                                    <li>
+                                        <span class="swatch" style="background-color: #dc3545;"></span>
+                                        Failed — @Model.Run.FailedCount (@($"{failedPct:F0}")%)
+                                    </li>
+                                    <li>
+                                        <span class="swatch" style="background-color: #ffc107;"></span>
+                                        Blocked — @Model.Run.BlockedCount (@($"{blockedPct:F0}")%)
+                                    </li>
+                                    <li>
+                                        <span class="swatch" style="background-color: #6c757d;"></span>
+                                        Untested — @Model.Run.UntestedCount (@($"{untestedPct:F0}")%)
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Confidence Window Card -->
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h6 class="mb-0">Confidence Window</h6>
+                            </div>
+                            <div class="card-body d-flex flex-column align-items-center justify-content-center text-center">
+                                <div class="confidence-score @confidenceColor mb-1">@($"{passRate:F0}")%</div>
+                                <div class="confidence-label @confidenceColor mb-3">@confidenceLevel Confidence</div>
+                                <div class="w-100">
+                                    <div class="d-flex justify-content-between small text-muted mb-1">
+                                        <span>Completion</span>
+                                        <span>@executedTests / @totalTests (@($"{completionRate:F0}")%)</span>
+                                    </div>
+                                    <div class="progress mb-3" style="height: 8px;">
+                                        <div class="progress-bar @confidenceBg" role="progressbar"
+                                             style="width: @($"{completionRate:F1}")%"></div>
+                                    </div>
+                                    <div class="row text-center">
+                                        <div class="col">
+                                            <div class="fw-bold text-success">@Model.Run.PassedCount</div>
+                                            <div class="text-muted small">Passed</div>
+                                        </div>
+                                        <div class="col">
+                                            <div class="fw-bold text-danger">@Model.Run.FailedCount</div>
+                                            <div class="text-muted small">Failed</div>
+                                        </div>
+                                        <div class="col">
+                                            <div class="fw-bold" style="color: #ffc107;">@Model.Run.BlockedCount</div>
+                                            <div class="text-muted small">Blocked</div>
+                                        </div>
+                                        <div class="col">
+                                            <div class="fw-bold text-secondary">@Model.Run.UntestedCount</div>
+                                            <div class="text-muted small">Untested</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            var total = Model.Run.PassedCount + Model.Run.FailedCount + Model.Run.BlockedCount + Model.Run.UntestedCount;
+            <div class="card mb-4">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>@Model.Run.Name</strong>
+                            <span class="text-muted small ms-2">(Run ID: @Model.Run.Id)</span>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <span class="badge bg-success">@Model.Run.PassedCount Passed</span>
+                            <span class="badge bg-danger">@Model.Run.FailedCount Failed</span>
+                            <span class="badge bg-warning">@Model.Run.BlockedCount Blocked</span>
+                            <span class="badge bg-secondary">@Model.Run.UntestedCount Untested</span>
+                        </div>
+                    </div>
+                    @if (total > 0)
+                    {
+                        <div class="progress mt-2" style="height: 8px;">
+                            <div class="progress-bar bg-success" role="progressbar"
+                                 style="width: @($"{(double)Model.Run.PassedCount / total * 100:F1}")%"
+                                 title="@Model.Run.PassedCount Passed"></div>
+                            <div class="progress-bar bg-danger" role="progressbar"
+                                 style="width: @($"{(double)Model.Run.FailedCount / total * 100:F1}")%"
+                                 title="@Model.Run.FailedCount Failed"></div>
+                            <div class="progress-bar bg-warning" role="progressbar"
+                                 style="width: @($"{(double)Model.Run.BlockedCount / total * 100:F1}")%"
+                                 title="@Model.Run.BlockedCount Blocked"></div>
+                            <div class="progress-bar bg-secondary" role="progressbar"
+                                 style="width: @($"{(double)Model.Run.UntestedCount / total * 100:F1}")%"
+                                 title="@Model.Run.UntestedCount Untested"></div>
+                        </div>
+                    }
+                </div>
+                <div class="card-body p-0">
+                    @if (Model.Tests.Count == 0)
+                    {
+                        <p class="p-3 mb-0 text-muted">No tests found in this run.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                        <table class="table table-striped mb-0">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Case ID</th>
+                                    <th>Title</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var test in Model.Tests)
+                                {
+                                    <tr>
+                                        <td>@test.Id</td>
+                                        <td>C@test.CaseId</td>
+                                        <td>@test.Title</td>
+                                        <td>
+                                            @{
+                                                var badgeClass = test.StatusId switch
+                                                {
+                                                    1 => "bg-success",
+                                                    2 => "bg-warning",
+                                                    5 => "bg-danger",
+                                                    _ => "bg-secondary"
+                                                };
+                                            }
+                                            <span class="badge @badgeClass">@test.StatusName</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Add Test Case Modal -->
+<div class="modal fade" id="addTestModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="AddTest" asp-route-runId="@Model.Run?.Id" asp-antiforgery="true">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Test Case</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="caseSectionId" class="form-label">Section *</label>
+                        <select name="CaseSectionId" id="caseSectionId" class="form-select" required>
+                            <option value="">Select a section...</option>
+                            @foreach (var sec in Model.Sections)
+                            {
+                                var indent = new string('\u2014', sec.Depth);
+                                <option value="@sec.Id">@indent @sec.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="caseTitle" class="form-label">Title *</label>
+                        <input type="text" name="CaseTitle" id="caseTitle" class="form-control" required />
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="caseTypeId" class="form-label">Type</label>
+                            <select name="CaseTypeId" id="caseTypeId" class="form-select">
+                                <option value="">None</option>
+                                <option value="1">Acceptance</option>
+                                <option value="2">Accessibility</option>
+                                <option value="3">Automated</option>
+                                <option value="4">Compatibility</option>
+                                <option value="5">Destructive</option>
+                                <option value="6">Functional</option>
+                                <option value="7">Other</option>
+                                <option value="8">Performance</option>
+                                <option value="9">Regression</option>
+                                <option value="10">Security</option>
+                                <option value="11">Smoke &amp; Sanity</option>
+                                <option value="12">Usability</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="casePriorityId" class="form-label">Priority</label>
+                            <select name="CasePriorityId" id="casePriorityId" class="form-select">
+                                <option value="">None</option>
+                                <option value="1">Low</option>
+                                <option value="2">Medium</option>
+                                <option value="3">High</option>
+                                <option value="4">Critical</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="caseEstimate" class="form-label">Estimate</label>
+                            <input type="text" name="CaseEstimate" id="caseEstimate" class="form-control" placeholder="e.g. 30s or 1m 45s" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="caseMilestoneId" class="form-label">Milestone</label>
+                            <input type="number" name="CaseMilestoneId" id="caseMilestoneId" class="form-control" value="@Model.Run?.MilestoneId" placeholder="Milestone ID" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="caseRefs" class="form-label">References</label>
+                        <input type="text" name="CaseRefs" id="caseRefs" class="form-control" placeholder="e.g. JIRA-123, JIRA-456" />
+                    </div>
+                    <hr />
+                    <div class="mb-3">
+                        <label for="casePreconditions" class="form-label">Preconditions</label>
+                        <textarea name="CasePreconditions" id="casePreconditions" class="form-control" rows="3" placeholder="Prerequisites or setup steps..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="caseSteps" class="form-label">Steps</label>
+                        <textarea name="CaseSteps" id="caseSteps" class="form-control" rows="4" placeholder="Step-by-step instructions..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="caseExpectedResult" class="form-label">Expected Result</label>
+                        <textarea name="CaseExpectedResult" id="caseExpectedResult" class="form-control" rows="3" placeholder="What should happen..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Create Test Case</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Copy Tests From Run Modal -->
+<div class="modal fade" id="copyTestsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="CopyTests" asp-route-runId="@Model.Run?.Id" asp-antiforgery="true">
+                <div class="modal-header">
+                    <h5 class="modal-title">Copy Tests From Another Run</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">
+                        Select a source run below. All of its tests that don't already exist in this run will be copied over.
+                    </p>
+                    <div class="mb-3">
+                        <label for="sourceRunId" class="form-label">Source Run *</label>
+                        <select name="SourceRunId" id="sourceRunId" class="form-select" required>
+                            <option value="">Select a run...</option>
+                            @foreach (var run in Model.ProjectRuns)
+                            {
+                                var testCount = run.PassedCount + run.FailedCount + run.BlockedCount + run.UntestedCount;
+                                <option value="@run.Id">@run.Name (@testCount tests)</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Copy Tests</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Existing Tests Modal -->
+<div class="modal fade" id="addExistingModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="AddExisting" asp-route-runId="@Model.Run?.Id" asp-antiforgery="true">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Existing Test Cases</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">
+                        Select test cases from the library to add to this run. Cases already in the run are not shown.
+                    </p>
+                    @if (Model.ExistingCases.Count == 0)
+                    {
+                        <div class="alert alert-info mb-0">
+                            No additional test cases are available. All cases are already in this run, or no cases exist in the project yet.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-2 d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">@Model.ExistingCases.Count case(s) available</span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.querySelectorAll('#addExistingModal input[type=checkbox]').forEach(c => c.checked = !c.checked)">
+                                Toggle All
+                            </button>
+                        </div>
+                        <div style="max-height: 400px; overflow-y: auto;" class="border rounded">
+                            <table class="table table-hover table-sm mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th style="width: 40px;"></th>
+                                        <th>ID</th>
+                                        <th>Title</th>
+                                        <th>Priority</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var tc in Model.ExistingCases)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <input type="checkbox" name="SelectedCaseIds" value="@tc.Id" class="form-check-input" />
+                                            </td>
+                                            <td class="text-muted small">C@tc.Id</td>
+                                            <td>@tc.Title</td>
+                                            <td>
+                                                @{
+                                                    var priBadge = tc.PriorityId switch
+                                                    {
+                                                        4 => "bg-danger",
+                                                        3 => "bg-warning text-dark",
+                                                        2 => "bg-info text-dark",
+                                                        _ => "bg-secondary"
+                                                    };
+                                                }
+                                                <span class="badge @priBadge">@tc.PriorityName</span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-info" @(Model.ExistingCases.Count == 0 ? "disabled" : "")>Add Selected</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
