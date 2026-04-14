@@ -51,6 +51,11 @@ public class IndexModel : PageModel
     public string? SuccessMessage { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether write operations are enabled.
+    /// </summary>
+    public bool WritesEnabled { get; set; }
+
+    /// <summary>
     /// Gets or sets the new project request for the create form.
     /// </summary>
     [BindProperty]
@@ -69,8 +74,9 @@ public class IndexModel : PageModel
 
         try
         {
-            Projects = await _testRail.GetProjectsAsync();
+            Projects = (await _testRail.GetProjectsAsync()).OrderBy(p => p.Name).ToList();
             Permissions = await _permissionService.GetPermissionsAsync();
+            WritesEnabled = await _settingsService.AreWritesEnabledAsync();
         }
         catch (Exception ex)
         {
@@ -92,6 +98,15 @@ public class IndexModel : PageModel
         if (!await _settingsService.IsConfiguredAsync())
         {
             return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await LoadProjectsAsync();
+            Permissions = await _permissionService.GetPermissionsAsync();
+            return Page();
         }
 
         if (string.IsNullOrWhiteSpace(NewProject.Name))
@@ -119,6 +134,7 @@ public class IndexModel : PageModel
 
         await LoadProjectsAsync();
         Permissions = await _permissionService.GetPermissionsAsync();
+        WritesEnabled = await _settingsService.AreWritesEnabledAsync();
         return Page();
     }
 
@@ -129,7 +145,7 @@ public class IndexModel : PageModel
     {
         try
         {
-            Projects = await _testRail.GetProjectsAsync();
+            Projects = (await _testRail.GetProjectsAsync()).OrderBy(p => p.Name).ToList();
         }
         catch
         {

@@ -68,6 +68,12 @@ public class Milestone
     public int? ParentId { get; set; }
 
     /// <summary>
+    /// Gets or sets the child milestones (sub-milestones) of this milestone.
+    /// </summary>
+    [JsonPropertyName("milestones")]
+    public List<Milestone>? Milestones { get; set; }
+
+    /// <summary>
     /// Gets or sets the URL to the milestone in TestRail.
     /// </summary>
     [JsonPropertyName("url")]

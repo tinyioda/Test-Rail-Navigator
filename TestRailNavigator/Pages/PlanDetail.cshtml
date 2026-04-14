@@ -276,7 +276,7 @@
 
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h4 class="mb-0">Test Runs</h4>
-            @if (Model.Plan is not null && !Model.Plan.IsCompleted)
+            @if (Model.WritesEnabled && Model.Plan is not null && !Model.Plan.IsCompleted)
             {
                 <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addEntryModal">
                     + Add Test Run
@@ -288,7 +288,7 @@
         {
             <div class="empty-state">
                 <p class="text-muted mb-3">No test runs found in this test plan.</p>
-                @if (Model.Plan is not null && !Model.Plan.IsCompleted)
+                @if (Model.WritesEnabled && Model.Plan is not null && !Model.Plan.IsCompleted)
                 {
                     <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addEntryModal">
                         + Add Test Run
@@ -305,7 +305,7 @@
                     <div class="card mb-4">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <strong>@entry.Name</strong>
-                            @if (!Model.Plan.IsCompleted)
+                            @if (Model.WritesEnabled && !Model.Plan.IsCompleted)
                             {
                                 <div class="d-flex gap-2">
                                     <button type="button" class="btn btn-sm btn-outline-secondary rename-entry-btn"
@@ -339,7 +339,7 @@
                                             <a asp-page="/Tests" asp-route-runId="@run.Id" class="text-decoration-none fw-bold">@run.Name</a>
                                             <span class="text-muted small ms-2">(Run ID: @run.Id)</span>
                                         </div>
-                                        @if (!Model.Plan.IsCompleted)
+                                        @if (Model.WritesEnabled && !Model.Plan.IsCompleted)
                                         {
                                             <div class="d-flex gap-2">
                                                 <button type="button" class="btn btn-sm btn-outline-secondary rename-entry-btn"
@@ -390,10 +390,10 @@
                                     <table class="table table-striped mb-0">
                                         <thead>
                                             <tr>
-                                                <th>ID</th>
-                                                <th>Case ID</th>
-                                                <th>Title</th>
-                                                <th>Status</th>
+                                                <th class="sortable" data-sort-type="number">ID</th>
+                                                <th class="sortable">Case ID</th>
+                                                <th class="sortable">Title</th>
+                                                <th class="sortable">Status</th>
                                             </tr>
                                         </thead>
                                         <tbody>

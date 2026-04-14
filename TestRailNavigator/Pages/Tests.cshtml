@@ -156,7 +156,7 @@
         {
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h4 class="mb-0">Tests</h4>
-                @if (!Model.Run.IsCompleted)
+                @if (Model.WritesEnabled && !Model.Run.IsCompleted)
                 {
                     <div class="d-flex gap-2">
                         <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#copyTestsModal">
@@ -334,10 +334,10 @@
                         <table class="table table-striped mb-0">
                             <thead>
                                 <tr>
-                                    <th>ID</th>
-                                    <th>Case ID</th>
-                                    <th>Title</th>
-                                    <th>Status</th>
+                                    <th class="sortable" data-sort-type="number">ID</th>
+                                    <th class="sortable">Case ID</th>
+                                    <th class="sortable">Title</th>
+                                    <th class="sortable">Status</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -529,9 +529,9 @@
                                 <thead class="table-light sticky-top">
                                     <tr>
                                         <th style="width: 40px;"></th>
-                                        <th>ID</th>
-                                        <th>Title</th>
-                                        <th>Priority</th>
+                                        <th class="sortable">ID</th>
+                                        <th class="sortable">Title</th>
+                                        <th class="sortable">Priority</th>
                                     </tr>
                                 </thead>
                                 <tbody>
