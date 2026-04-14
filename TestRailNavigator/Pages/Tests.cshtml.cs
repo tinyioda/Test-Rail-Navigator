@@ -91,6 +91,11 @@ public class TestsModel : PageModel
     public string? SuccessMessage { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether write operations are enabled.
+    /// </summary>
+    public bool WritesEnabled { get; set; }
+
+    /// <summary>
     /// Gets or sets the sections available for the run's suite.
     /// </summary>
     public List<Section> Sections { get; set; } = [];
@@ -210,22 +215,22 @@ public class TestsModel : PageModel
                 Milestone = await _testRail.GetMilestoneAsync(Run.MilestoneId.Value);
 
                 var allPlans = await _testRail.GetPlansForMilestoneAsync(ProjectId, Run.MilestoneId.Value);
-                OpenPlans = allPlans.Where(p => !p.IsCompleted).ToList();
-                ClosedPlans = allPlans.Where(p => p.IsCompleted).ToList();
+                OpenPlans = allPlans.Where(p => !p.IsCompleted).OrderBy(p => p.Name).ToList();
+                ClosedPlans = allPlans.Where(p => p.IsCompleted).OrderBy(p => p.Name).ToList();
 
                 var allRuns = await _testRail.GetRunsForMilestoneAsync(ProjectId, Run.MilestoneId.Value);
-                OpenRuns = allRuns.Where(r => !r.IsCompleted).ToList();
-                ClosedRuns = allRuns.Where(r => r.IsCompleted).ToList();
+                OpenRuns = allRuns.Where(r => !r.IsCompleted).OrderBy(r => r.Name).ToList();
+                ClosedRuns = allRuns.Where(r => r.IsCompleted).OrderBy(r => r.Name).ToList();
             }
 
             if (ProjectId > 0)
             {
                 var allProjectRuns = await _testRail.GetRunsAsync(ProjectId);
-                ProjectRuns = allProjectRuns.Where(r => r.Id != runId).ToList();
+                ProjectRuns = allProjectRuns.Where(r => r.Id != runId).OrderBy(r => r.Name).ToList();
 
                 var existingCaseIds = Tests.Select(t => t.CaseId).ToHashSet();
                 var allCases = await _testRail.GetCasesAsync(ProjectId, Run?.SuiteId);
-                ExistingCases = allCases.Where(c => !existingCaseIds.Contains(c.Id)).ToList();
+                ExistingCases = allCases.Where(c => !existingCaseIds.Contains(c.Id)).OrderBy(c => c.Title).ToList();
             }
         }
         catch (Exception ex)
@@ -235,6 +240,7 @@ public class TestsModel : PageModel
         }
 
         Permissions = await _permissionService.GetPermissionsAsync();
+        WritesEnabled = await _settingsService.AreWritesEnabledAsync();
         return Page();
     }
 
@@ -248,6 +254,14 @@ public class TestsModel : PageModel
         if (!await _settingsService.IsConfiguredAsync())
         {
             return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await ReloadPageDataAsync(runId);
+            return Page();
         }
 
         if (CaseSectionId <= 0 || string.IsNullOrWhiteSpace(CaseTitle))
@@ -321,6 +335,14 @@ public class TestsModel : PageModel
         if (!await _settingsService.IsConfiguredAsync())
         {
             return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await ReloadPageDataAsync(runId);
+            return Page();
         }
 
         if (SourceRunId <= 0)
@@ -404,6 +426,14 @@ public class TestsModel : PageModel
         if (!await _settingsService.IsConfiguredAsync())
         {
             return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await ReloadPageDataAsync(runId);
+            return Page();
         }
 
         if (SelectedCaseIds.Count == 0)
@@ -492,22 +522,22 @@ public class TestsModel : PageModel
                 Milestone = await _testRail.GetMilestoneAsync(Run.MilestoneId.Value);
 
                 var allPlans = await _testRail.GetPlansForMilestoneAsync(ProjectId, Run.MilestoneId.Value);
-                OpenPlans = allPlans.Where(p => !p.IsCompleted).ToList();
-                ClosedPlans = allPlans.Where(p => p.IsCompleted).ToList();
+                OpenPlans = allPlans.Where(p => !p.IsCompleted).OrderBy(p => p.Name).ToList();
+                ClosedPlans = allPlans.Where(p => p.IsCompleted).OrderBy(p => p.Name).ToList();
 
                 var allRuns = await _testRail.GetRunsForMilestoneAsync(ProjectId, Run.MilestoneId.Value);
-                OpenRuns = allRuns.Where(r => !r.IsCompleted).ToList();
-                ClosedRuns = allRuns.Where(r => r.IsCompleted).ToList();
+                OpenRuns = allRuns.Where(r => !r.IsCompleted).OrderBy(r => r.Name).ToList();
+                ClosedRuns = allRuns.Where(r => r.IsCompleted).OrderBy(r => r.Name).ToList();
             }
 
             if (ProjectId > 0)
             {
                 var allProjectRuns = await _testRail.GetRunsAsync(ProjectId);
-                ProjectRuns = allProjectRuns.Where(r => r.Id != runId).ToList();
+                ProjectRuns = allProjectRuns.Where(r => r.Id != runId).OrderBy(r => r.Name).ToList();
 
                 var existingCaseIds = Tests.Select(t => t.CaseId).ToHashSet();
                 var allCases = await _testRail.GetCasesAsync(ProjectId, Run?.SuiteId);
-                ExistingCases = allCases.Where(c => !existingCaseIds.Contains(c.Id)).ToList();
+                ExistingCases = allCases.Where(c => !existingCaseIds.Contains(c.Id)).OrderBy(c => c.Title).ToList();
             }
         }
         catch (Exception ex)
@@ -516,5 +546,6 @@ public class TestsModel : PageModel
         }
 
         Permissions = await _permissionService.GetPermissionsAsync();
+        WritesEnabled = await _settingsService.AreWritesEnabledAsync();
     }
 }

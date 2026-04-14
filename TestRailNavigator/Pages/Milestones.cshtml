@@ -17,9 +17,12 @@
         <h1>Milestones</h1>
         <h5 class="text-muted mb-0">@Model.Project?.Name</h5>
     </div>
-    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createMilestoneModal">
-        + New Milestone
-    </button>
+    @if (Model.WritesEnabled)
+    {
+        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createMilestoneModal">
+            + New Milestone
+        </button>
+    }
 </div>
 
 @if (!string.IsNullOrEmpty(Model.SuccessMessage))
@@ -50,11 +53,11 @@ else
     <table class="table table-striped">
         <thead>
             <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Status</th>
-                <th>Start Date</th>
-                <th>Due Date</th>
+                <th class="sortable" data-sort-type="number">ID</th>
+                <th class="sortable">Name</th>
+                <th class="sortable">Status</th>
+                <th class="sortable" data-sort-type="date">Start Date</th>
+                <th class="sortable" data-sort-type="date">Due Date</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -99,24 +102,27 @@ else
                         }
                     </td>
                     <td>
-                        <button type="button" class="btn btn-sm btn-outline-primary"
-                                data-bs-toggle="modal"
-                                data-bs-target="#editMilestoneModal"
-                                data-id="@milestone.Id"
-                                data-name="@milestone.Name"
-                                data-description="@milestone.Description"
-                                data-start="@(milestone.StartOn.HasValue ? DateTimeOffset.FromUnixTimeSeconds(milestone.StartOn.Value).UtcDateTime.ToString("yyyy-MM-dd") : "")"
-                                data-due="@(milestone.DueOn.HasValue ? DateTimeOffset.FromUnixTimeSeconds(milestone.DueOn.Value).UtcDateTime.ToString("yyyy-MM-dd") : "")"
-                                data-completed="@milestone.IsCompleted.ToString().ToLowerInvariant()">
-                            Edit
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-danger"
-                                data-bs-toggle="modal"
-                                data-bs-target="#deleteMilestoneModal"
-                                data-id="@milestone.Id"
-                                data-name="@milestone.Name">
-                            Delete
-                        </button>
+                        @if (Model.WritesEnabled)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#editMilestoneModal"
+                                    data-id="@milestone.Id"
+                                    data-name="@milestone.Name"
+                                    data-description="@milestone.Description"
+                                    data-start="@(milestone.StartOn.HasValue ? DateTimeOffset.FromUnixTimeSeconds(milestone.StartOn.Value).UtcDateTime.ToString("yyyy-MM-dd") : "")"
+                                    data-due="@(milestone.DueOn.HasValue ? DateTimeOffset.FromUnixTimeSeconds(milestone.DueOn.Value).UtcDateTime.ToString("yyyy-MM-dd") : "")"
+                                    data-completed="@milestone.IsCompleted.ToString().ToLowerInvariant()">
+                                Edit
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#deleteMilestoneModal"
+                                    data-id="@milestone.Id"
+                                    data-name="@milestone.Name">
+                                Delete
+                            </button>
+                        }
                     </td>
                 </tr>
             }

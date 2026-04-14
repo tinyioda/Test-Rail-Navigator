@@ -62,6 +62,11 @@ public class MilestonesModel : PageModel
     public string? SuccessMessage { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether write operations are enabled.
+    /// </summary>
+    public bool WritesEnabled { get; set; }
+
+    /// <summary>
     /// Gets or sets the milestone name for the create/edit form.
     /// </summary>
     [BindProperty]
@@ -123,6 +128,14 @@ public class MilestonesModel : PageModel
             return RedirectToPage("/Setup");
         }
 
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await LoadPageDataAsync();
+            return Page();
+        }
+
         if (string.IsNullOrWhiteSpace(MilestoneName))
         {
             ErrorMessage = "Milestone name is required.";
@@ -159,6 +172,14 @@ public class MilestonesModel : PageModel
         if (!await _settingsService.IsConfiguredAsync())
         {
             return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await LoadPageDataAsync();
+            return Page();
         }
 
         if (string.IsNullOrWhiteSpace(MilestoneName))
@@ -199,6 +220,14 @@ public class MilestonesModel : PageModel
         if (!await _settingsService.IsConfiguredAsync())
         {
             return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await LoadPageDataAsync();
+            return Page();
         }
 
         _consoleLog.Log($"Deleting milestone {MilestoneId}");
@@ -246,7 +275,7 @@ public class MilestonesModel : PageModel
         try
         {
             Project = await _testRail.GetProjectAsync(ProjectId);
-            Milestones = await _testRail.GetMilestonesAsync(ProjectId);
+            Milestones = (await _testRail.GetMilestonesAsync(ProjectId)).OrderBy(m => m.Name).ToList();
         }
         catch (Exception ex)
         {
@@ -255,5 +284,6 @@ public class MilestonesModel : PageModel
         }
 
         Permissions = await _permissionService.GetPermissionsAsync();
+        WritesEnabled = await _settingsService.AreWritesEnabledAsync();
     }
 }

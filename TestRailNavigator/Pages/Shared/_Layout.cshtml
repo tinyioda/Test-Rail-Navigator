@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿@inject TestRailNavigator.Services.SettingsService SettingsService
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -30,6 +31,24 @@
                             <a class="nav-link" asp-area="" asp-page="/Privacy">Privacy</a>
                         </li>
                     </ul>
+                    <ul class="navbar-nav align-items-center">
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2" asp-area="" asp-page="/Setup">
+                                <i class="bi bi-gear"></i>
+                                @if (await SettingsService.IsConfiguredAsync())
+                                {
+                                    @if (await SettingsService.AreWritesEnabledAsync())
+                                    {
+                                        <span class="navbar-mode-dot bg-success" title="Read / Write"></span>
+                                    }
+                                    else
+                                    {
+                                        <span class="navbar-mode-dot bg-warning" title="Read-Only"></span>
+                                    }
+                                }
+                            </a>
+                        </li>
+                    </ul>
                 </div>
             </div>
         </nav>
@@ -53,6 +72,7 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/sortable.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>

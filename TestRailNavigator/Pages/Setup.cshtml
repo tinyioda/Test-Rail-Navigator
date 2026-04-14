@@ -13,42 +13,83 @@
 
 <div class="row justify-content-center">
     <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h4 class="mb-0">Connect to TestRail</h4>
-            </div>
-            <div class="card-body">
-                <p class="text-muted">Enter your TestRail credentials to get started.</p>
+        @if (Model.RequiresLogin)
+        {
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0"><i class="bi bi-lock"></i> Setup Login</h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Enter the Setup credentials to continue.</p>
 
-                @if (!string.IsNullOrEmpty(Model.ErrorMessage))
-                {
-                    <div class="alert alert-danger">@Model.ErrorMessage</div>
-                }
+                    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+                    {
+                        <div class="alert alert-danger">@Model.ErrorMessage</div>
+                    }
 
-                <form method="post">
-                    <div class="mb-3">
-                        <label asp-for="Settings.BaseUrl" class="form-label">TestRail URL</label>
-                        <input asp-for="Settings.BaseUrl" class="form-control" placeholder="https://yourcompany.testrail.io" />
-                        <div class="form-text">The URL of your TestRail instance</div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label asp-for="Settings.Username" class="form-label">Email</label>
-                        <input asp-for="Settings.Username" type="email" class="form-control" placeholder="you@example.com" />
-                        <div class="form-text">Your TestRail account email</div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label asp-for="Settings.ApiKey" class="form-label">API Key</label>
-                        <input asp-for="Settings.ApiKey" type="password" class="form-control" />
-                        <div class="form-text">
-                            Generate an API key in TestRail: My Settings &rarr; API Keys
+                    <form method="post" asp-page-handler="Login">
+                        <div class="mb-3">
+                            <label for="LoginUsername" class="form-label">Username</label>
+                            <input asp-for="LoginUsername" class="form-control" required autofocus />
                         </div>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary w-100">Connect</button>
-                </form>
+                        <div class="mb-3">
+                            <label for="LoginPassword" class="form-label">Password</label>
+                            <input asp-for="LoginPassword" type="password" class="form-control" required />
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Log In</button>
+                    </form>
+                </div>
             </div>
-        </div>
+        }
+        else
+        {
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Connect to TestRail</h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Enter your TestRail credentials to get started.</p>
+
+                    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+                    {
+                        <div class="alert alert-danger">@Model.ErrorMessage</div>
+                    }
+
+                    <form method="post">
+                        <div class="mb-3">
+                            <label asp-for="Settings.BaseUrl" class="form-label">TestRail URL</label>
+                            <input asp-for="Settings.BaseUrl" class="form-control" placeholder="https://yourcompany.testrail.io" />
+                            <div class="form-text">The URL of your TestRail instance</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Settings.Username" class="form-label">Email</label>
+                            <input asp-for="Settings.Username" type="email" class="form-control" placeholder="you@example.com" />
+                            <div class="form-text">Your TestRail account email</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Settings.ApiKey" class="form-label">API Key</label>
+                            <input asp-for="Settings.ApiKey" type="password" class="form-control" />
+                            <div class="form-text">
+                                Generate an API key in TestRail: My Settings &rarr; API Keys
+                            </div>
+                        </div>
+
+                        <hr />
+
+                        <div class="form-check form-switch mb-3">
+                            <input asp-for="Settings.AllowWrites" class="form-check-input" type="checkbox" role="switch" />
+                            <label asp-for="Settings.AllowWrites" class="form-check-label">Enable write operations</label>
+                            <div class="form-text">
+                                When off, the application runs in read-only mode. Create, edit, and delete actions are hidden and blocked.
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100">Connect</button>
+                    </form>
+                </div>
+            </div>
+        }
     </div>
 </div>

@@ -47,89 +47,94 @@
         <!-- Left Panel: Milestones -->
         <div class="col-lg-3 col-md-4 mb-4">
             <div class="card h-100">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0">Milestones</h6>
-                    <a asp-page="/Milestones" asp-route-projectId="@Model.Project.Id" class="btn btn-sm btn-outline-info">
-                        Manage
-                    </a>
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">Milestones</h6>
+                        <a asp-page="/Milestones" asp-route-projectId="@Model.Project.Id" class="btn btn-sm btn-outline-info">
+                            Manage
+                        </a>
+                    </div>
+                    <select id="milestoneFilter" class="form-select form-select-sm">
+                        <option value="active" selected>Active</option>
+                        <option value="upcoming">Upcoming</option>
+                        <option value="completed">Completed</option>
+                        <option value="all">All</option>
+                    </select>
                 </div>
                 <div class="card-body p-0" style="overflow-y: auto; max-height: 70vh;">
-                    <!-- Open Milestones -->
-                    <div class="panel-section-label">
-                        <h6 class="text-uppercase text-muted small fw-bold mb-0">
-                            Open
-                            <span class="badge bg-success ms-1">@Model.OpenMilestones.Count</span>
-                        </h6>
-                    </div>
-                    @if (Model.OpenMilestones.Count == 0)
-                    {
-                        <p class="text-muted small px-3 pb-2">No open milestones.</p>
-                    }
-                    else
-                    {
-                        <div class="list-group list-group-flush">
-                            @foreach (var milestone in Model.OpenMilestones)
-                            {
-                                var isSelected = Model.MilestoneId == milestone.Id;
-                                <a asp-page="/Project" asp-route-projectId="@Model.Project.Id" asp-route-milestoneId="@milestone.Id"
-                                   class="list-group-item list-group-item-action px-3 py-2 @(isSelected ? "active" : "")">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <div>
-                                            <div class="fw-semibold">@milestone.Name</div>
-                                            @if (milestone.DueOn.HasValue)
-                                            {
-                                                <small class="@(isSelected ? "text-white-50" : "text-muted")">
-                                                    Due @DateTimeOffset.FromUnixTimeSeconds(milestone.DueOn.Value).UtcDateTime.ToString("yyyy-MM-dd")
-                                                </small>
-                                            }
-                                        </div>
-                                        @if (milestone.IsStarted)
+                    <div class="list-group list-group-flush" id="milestoneList">
+                        @{
+                            var allParents = Model.OpenMilestones.Concat(Model.ClosedMilestones).OrderBy(m => m.Name).ToList();
+                        }
+                        @if (allParents.Count == 0)
+                        {
+                            <p class="text-muted small px-3 py-2 mb-0">No milestones found.</p>
+                        }
+                        @foreach (var milestone in allParents)
+                        {
+                            var isSelected = Model.MilestoneId == milestone.Id;
+                            var status = milestone.IsCompleted ? "completed" : milestone.IsStarted ? "active" : "upcoming";
+                            <a asp-page="/Project" asp-route-projectId="@Model.Project.Id" asp-route-milestoneId="@milestone.Id"
+                               class="list-group-item list-group-item-action px-3 py-2 milestone-item @(isSelected ? "active" : "")"
+                               data-status="@status" data-milestone-id="@milestone.Id">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <div class="fw-semibold @(milestone.IsCompleted && !isSelected ? "text-muted" : "")">@milestone.Name</div>
+                                        @if (milestone.IsCompleted && milestone.CompletedOn.HasValue)
                                         {
-                                            <span class="badge @(isSelected ? "bg-light text-dark" : "bg-success")">Active</span>
+                                            <small class="@(isSelected ? "text-white-50" : "text-muted")">
+                                                Completed @DateTimeOffset.FromUnixTimeSeconds(milestone.CompletedOn.Value).UtcDateTime.ToString("yyyy-MM-dd")
+                                            </small>
                                         }
-                                        else
+                                        else if (milestone.DueOn.HasValue)
                                         {
-                                            <span class="badge @(isSelected ? "bg-light text-dark" : "bg-info")">Upcoming</span>
+                                            <small class="@(isSelected ? "text-white-50" : "text-muted")">
+                                                Due @DateTimeOffset.FromUnixTimeSeconds(milestone.DueOn.Value).UtcDateTime.ToString("yyyy-MM-dd")
+                                            </small>
                                         }
                                     </div>
-                                </a>
-                            }
-                        </div>
-                    }
-
-                    @if (Model.ClosedMilestones.Count > 0)
-                    {
-                        <hr class="my-0" />
-
-                        <!-- Closed Milestones -->
-                        <div class="panel-section-label">
-                            <h6 class="text-uppercase text-muted small fw-bold mb-0">
-                                Closed
-                                <span class="badge bg-secondary ms-1">@Model.ClosedMilestones.Count</span>
-                            </h6>
-                        </div>
-                        <div class="list-group list-group-flush">
-                            @foreach (var milestone in Model.ClosedMilestones)
-                            {
-                                var isSelected = Model.MilestoneId == milestone.Id;
-                                <a asp-page="/Project" asp-route-projectId="@Model.Project.Id" asp-route-milestoneId="@milestone.Id"
-                                   class="list-group-item list-group-item-action px-3 py-2 @(isSelected ? "active" : "")">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <div>
-                                            <div class="@(isSelected ? "" : "text-muted")">@milestone.Name</div>
-                                            @if (milestone.CompletedOn.HasValue)
-                                            {
-                                                <small class="@(isSelected ? "text-white-50" : "text-muted")">
-                                                    Completed @DateTimeOffset.FromUnixTimeSeconds(milestone.CompletedOn.Value).UtcDateTime.ToString("yyyy-MM-dd")
-                                                </small>
-                                            }
-                                        </div>
+                                    @if (milestone.IsCompleted)
+                                    {
                                         <span class="badge @(isSelected ? "bg-light text-dark" : "bg-secondary")">Completed</span>
-                                    </div>
-                                </a>
+                                    }
+                                    else if (milestone.IsStarted)
+                                    {
+                                        <span class="badge @(isSelected ? "bg-light text-dark" : "bg-success")">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge @(isSelected ? "bg-light text-dark" : "bg-info")">Upcoming</span>
+                                    }
+                                </div>
+                            </a>
+                            @if (Model.MilestoneChildren.TryGetValue(milestone.Id, out var children))
+                            {
+                                @foreach (var child in children)
+                                {
+                                    var isChildSelected = Model.MilestoneId == child.Id;
+                                    var childStatus = child.IsCompleted ? "completed" : child.IsStarted ? "active" : "upcoming";
+                                    <a asp-page="/Project" asp-route-projectId="@Model.Project.Id" asp-route-milestoneId="@child.Id"
+                                       class="list-group-item list-group-item-action ps-5 py-1 milestone-child @(isChildSelected ? "active" : "")"
+                                       data-parent-id="@milestone.Id" data-status="@childStatus">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <div class="small @(isChildSelected ? "" : child.IsCompleted ? "text-muted" : "")">@child.Name</div>
+                                            </div>
+                                            @if (child.IsCompleted)
+                                            {
+                                                <span class="badge @(isChildSelected ? "bg-light text-dark" : "bg-secondary") badge-sm">Done</span>
+                                            }
+                                            else if (child.IsStarted)
+                                            {
+                                                <span class="badge @(isChildSelected ? "bg-light text-dark" : "bg-success") badge-sm">Active</span>
+                                            }
+                                        </div>
+                                    </a>
+                                }
                             }
-                        </div>
-                    }
+                        }
+                    </div>
+                    <p class="text-muted small px-3 py-2 mb-0 d-none" id="milestoneEmpty">No milestones match this filter.</p>
                 </div>
             </div>
         </div>
@@ -150,12 +155,182 @@
             {
                 <h3 class="mb-4">@Model.SelectedMilestone.Name</h3>
 
+                @if (Model.SelectedChildMilestones.Count > 0)
+                {
+                    var activeMilestones = Model.SelectedChildMilestones.Where(m => !m.IsCompleted && m.IsStarted).ToList();
+                    var upcomingMilestones = Model.SelectedChildMilestones.Where(m => !m.IsCompleted && !m.IsStarted).ToList();
+                    var completedMilestones = Model.SelectedChildMilestones.Where(m => m.IsCompleted).ToList();
+
+                    <!-- Milestones Section (child milestones) -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="mb-0">Milestones</h4>
+                    </div>
+
+                    @if (activeMilestones.Count > 0)
+                    {
+                        <h6 class="text-uppercase text-muted small fw-bold mb-2">
+                            Active
+                            <span class="badge bg-success ms-1">@activeMilestones.Count</span>
+                        </h6>
+                        <div class="table-responsive mb-4">
+                        <table class="table table-striped child-milestone-table">
+                            <thead>
+                                <tr>
+                                    <th class="sortable">Name</th>
+                                    <th class="sortable" data-sort-type="date">Start Date</th>
+                                    <th class="sortable" data-sort-type="date">Due Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var child in activeMilestones)
+                                {
+                                    <tr>
+                                        <td>
+                                            <a asp-page="/Project" asp-route-projectId="@Model.Project.Id" asp-route-milestoneId="@child.Id">
+                                                @child.Name
+                                            </a>
+                                        </td>
+                                        <td>
+                                            @if (child.StartOn.HasValue)
+                                            {
+                                                @DateTimeOffset.FromUnixTimeSeconds(child.StartOn.Value).UtcDateTime.ToString("yyyy-MM-dd")
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (child.DueOn.HasValue)
+                                            {
+                                                @DateTimeOffset.FromUnixTimeSeconds(child.DueOn.Value).UtcDateTime.ToString("yyyy-MM-dd")
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        </div>
+                    }
+
+                    @if (upcomingMilestones.Count > 0)
+                    {
+                        <h6 class="text-uppercase text-muted small fw-bold mb-2">
+                            Upcoming
+                            <span class="badge bg-info ms-1">@upcomingMilestones.Count</span>
+                        </h6>
+                        <div class="table-responsive mb-4">
+                        <table class="table table-striped child-milestone-table">
+                            <thead>
+                                <tr>
+                                    <th class="sortable">Name</th>
+                                    <th class="sortable" data-sort-type="date">Start Date</th>
+                                    <th class="sortable" data-sort-type="date">Due Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var child in upcomingMilestones)
+                                {
+                                    <tr>
+                                        <td>
+                                            <a asp-page="/Project" asp-route-projectId="@Model.Project.Id" asp-route-milestoneId="@child.Id">
+                                                @child.Name
+                                            </a>
+                                        </td>
+                                        <td>
+                                            @if (child.StartOn.HasValue)
+                                            {
+                                                @DateTimeOffset.FromUnixTimeSeconds(child.StartOn.Value).UtcDateTime.ToString("yyyy-MM-dd")
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (child.DueOn.HasValue)
+                                            {
+                                                @DateTimeOffset.FromUnixTimeSeconds(child.DueOn.Value).UtcDateTime.ToString("yyyy-MM-dd")
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        </div>
+                    }
+
+                    @if (completedMilestones.Count > 0)
+                    {
+                        <h6 class="text-uppercase text-muted small fw-bold mb-2">
+                            Completed
+                            <span class="badge bg-secondary ms-1">@completedMilestones.Count</span>
+                        </h6>
+                        <div class="table-responsive mb-4">
+                        <table class="table table-striped child-milestone-table">
+                            <thead>
+                                <tr>
+                                    <th class="sortable">Name</th>
+                                    <th class="sortable" data-sort-type="date">Start Date</th>
+                                    <th class="sortable" data-sort-type="date">Due Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var child in completedMilestones)
+                                {
+                                    <tr>
+                                        <td>
+                                            <a asp-page="/Project" asp-route-projectId="@Model.Project.Id" asp-route-milestoneId="@child.Id">
+                                                @child.Name
+                                            </a>
+                                        </td>
+                                        <td>
+                                            @if (child.StartOn.HasValue)
+                                            {
+                                                @DateTimeOffset.FromUnixTimeSeconds(child.StartOn.Value).UtcDateTime.ToString("yyyy-MM-dd")
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (child.DueOn.HasValue)
+                                            {
+                                                @DateTimeOffset.FromUnixTimeSeconds(child.DueOn.Value).UtcDateTime.ToString("yyyy-MM-dd")
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        </div>
+                    }
+
+                    <hr class="my-4" />
+                }
+
                 <!-- Test Plans Section -->
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h4 class="mb-0">Test Plans</h4>
-                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createPlanModal">
-                        + New Test Plan
-                    </button>
+                    @if (Model.WritesEnabled)
+                    {
+                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createPlanModal">
+                            + New Test Plan
+                        </button>
+                    }
                 </div>
 
                 @if (Model.MilestonePlans.Count == 0)
@@ -168,13 +343,13 @@
                     <table class="table table-striped milestone-table">
                         <thead>
                             <tr>
-                                <th>ID</th>
-                                <th>Name</th>
-                                <th>Status</th>
-                                <th>Passed</th>
-                                <th>Failed</th>
-                                <th>Blocked</th>
-                                <th>Untested</th>
+                                <th class="sortable" data-sort-type="number">ID</th>
+                                <th class="sortable">Name</th>
+                                <th class="sortable">Status</th>
+                                <th class="sortable" data-sort-type="number">Passed</th>
+                                <th class="sortable" data-sort-type="number">Failed</th>
+                                <th class="sortable" data-sort-type="number">Blocked</th>
+                                <th class="sortable" data-sort-type="number">Untested</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -201,21 +376,24 @@
                                     <td><span class="text-warning">@plan.BlockedCount</span></td>
                                     <td><span class="text-muted">@plan.UntestedCount</span></td>
                                     <td>
-                                        <button type="button" class="btn btn-sm btn-outline-primary"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#editPlanModal"
-                                                data-id="@plan.Id"
-                                                data-name="@plan.Name"
-                                                data-description="@plan.Description">
-                                            Edit
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-danger"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#deletePlanModal"
-                                                data-id="@plan.Id"
-                                                data-name="@plan.Name">
-                                            Delete
-                                        </button>
+                                        @if (Model.WritesEnabled)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#editPlanModal"
+                                                    data-id="@plan.Id"
+                                                    data-name="@plan.Name"
+                                                    data-description="@plan.Description">
+                                                Edit
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#deletePlanModal"
+                                                    data-id="@plan.Id"
+                                                    data-name="@plan.Name">
+                                                Delete
+                                            </button>
+                                        }
                                     </td>
                                 </tr>
                             }
@@ -241,13 +419,13 @@
                     <table class="table table-striped milestone-table">
                         <thead>
                             <tr>
-                                <th>ID</th>
-                                <th>Name</th>
-                                <th>Status</th>
-                                <th>Passed</th>
-                                <th>Failed</th>
-                                <th>Blocked</th>
-                                <th>Untested</th>
+                                <th class="sortable" data-sort-type="number">ID</th>
+                                <th class="sortable">Name</th>
+                                <th class="sortable">Status</th>
+                                <th class="sortable" data-sort-type="number">Passed</th>
+                                <th class="sortable" data-sort-type="number">Failed</th>
+                                <th class="sortable" data-sort-type="number">Blocked</th>
+                                <th class="sortable" data-sort-type="number">Untested</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -374,6 +552,52 @@
 
 @section Scripts {
     <script>
+        // Milestone sidebar filter
+        const milestoneFilter = document.getElementById('milestoneFilter');
+        const milestoneList = document.getElementById('milestoneList');
+        const milestoneEmpty = document.getElementById('milestoneEmpty');
+
+        function applyMilestoneFilter() {
+            const filter = milestoneFilter.value;
+            const parents = milestoneList.querySelectorAll('.milestone-item');
+            const children = milestoneList.querySelectorAll('.milestone-child');
+            let visibleCount = 0;
+
+            parents.forEach(function (item) {
+                const status = item.getAttribute('data-status');
+                const show = filter === 'all' || status === filter;
+                item.classList.toggle('d-none', !show);
+                if (show) visibleCount++;
+            });
+
+            children.forEach(function (item) {
+                const parentId = item.getAttribute('data-parent-id');
+                const childStatus = item.getAttribute('data-status');
+                const parent = milestoneList.querySelector('.milestone-item[data-milestone-id="' + parentId + '"]');
+                const parentVisible = parent && !parent.classList.contains('d-none');
+                const statusMatch = filter === 'all' || childStatus === filter;
+                item.classList.toggle('d-none', !(parentVisible && statusMatch));
+            });
+
+            if (milestoneEmpty) {
+                milestoneEmpty.classList.toggle('d-none', visibleCount > 0);
+            }
+        }
+
+        if (milestoneFilter) {
+            // If the selected milestone doesn't match the default filter, switch to its status
+            const selectedItem = milestoneList && milestoneList.querySelector('.milestone-item.active');
+            if (selectedItem) {
+                const selectedStatus = selectedItem.getAttribute('data-status');
+                if (selectedStatus !== milestoneFilter.value) {
+                    milestoneFilter.value = selectedStatus;
+                }
+            }
+
+            milestoneFilter.addEventListener('change', applyMilestoneFilter);
+            applyMilestoneFilter();
+        }
+
         // Populate the Edit Plan modal fields from data attributes on the trigger button
         const editPlanModal = document.getElementById('editPlanModal');
         if (editPlanModal) {

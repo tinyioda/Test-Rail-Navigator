@@ -129,7 +129,9 @@ public class TestRailClient
             var size = doc.RootElement.TryGetProperty("size", out var s) ? s.GetInt32() : 0;
             var limit = doc.RootElement.TryGetProperty("limit", out var l) ? l.GetInt32() : 250;
 
-            if (size < limit)
+            // Stop when: the page is smaller than the limit (last page),
+            // or limit/size is zero (all results returned at once).
+            if (limit == 0 || size == 0 || size < limit)
             {
                 break;
             }

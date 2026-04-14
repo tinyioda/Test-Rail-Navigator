@@ -15,9 +15,12 @@
         <h1 class="mb-1">Projects</h1>
         <p class="text-muted mb-0">Select a project to manage its milestones, plans, and runs.</p>
     </div>
-    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createProjectModal">
-        + New Project
-    </button>
+    @if (Model.WritesEnabled)
+    {
+        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createProjectModal">
+            + New Project
+        </button>
+    }
 </div>
 
 @if (!string.IsNullOrEmpty(Model.SuccessMessage))
@@ -41,9 +44,12 @@
     <div class="empty-state">
         <h5 class="text-muted">No projects found</h5>
         <p class="text-muted">Create your first project to get started.</p>
-        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createProjectModal">
-            + New Project
-        </button>
+        @if (Model.WritesEnabled)
+        {
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createProjectModal">
+                + New Project
+            </button>
+        }
     </div>
 }
 else

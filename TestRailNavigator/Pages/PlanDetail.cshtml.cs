@@ -86,6 +86,11 @@ public class PlanDetailModel : PageModel
     public string? SuccessMessage { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether write operations are enabled.
+    /// </summary>
+    public bool WritesEnabled { get; set; }
+
+    /// <summary>
     /// Gets or sets the tests for each run, keyed by run identifier.
     /// </summary>
     public Dictionary<int, List<Test>> RunTests { get; set; } = [];
@@ -153,12 +158,12 @@ public class PlanDetailModel : PageModel
                 Milestone = await _testRail.GetMilestoneAsync(Plan.MilestoneId.Value);
 
                 var allPlans = await _testRail.GetPlansForMilestoneAsync(ProjectId, Plan.MilestoneId.Value);
-                OpenPlans = allPlans.Where(p => !p.IsCompleted).ToList();
-                ClosedPlans = allPlans.Where(p => p.IsCompleted).ToList();
+                OpenPlans = allPlans.Where(p => !p.IsCompleted).OrderBy(p => p.Name).ToList();
+                ClosedPlans = allPlans.Where(p => p.IsCompleted).OrderBy(p => p.Name).ToList();
 
                 var allRuns = await _testRail.GetRunsForMilestoneAsync(ProjectId, Plan.MilestoneId.Value);
-                OpenRuns = allRuns.Where(r => !r.IsCompleted).ToList();
-                ClosedRuns = allRuns.Where(r => r.IsCompleted).ToList();
+                OpenRuns = allRuns.Where(r => !r.IsCompleted).OrderBy(r => r.Name).ToList();
+                ClosedRuns = allRuns.Where(r => r.IsCompleted).OrderBy(r => r.Name).ToList();
             }
 
             if (Plan?.Entries is not null)
@@ -188,6 +193,7 @@ public class PlanDetailModel : PageModel
         }
 
         Permissions = await _permissionService.GetPermissionsAsync();
+        WritesEnabled = await _settingsService.AreWritesEnabledAsync();
         return Page();
     }
 
@@ -201,6 +207,14 @@ public class PlanDetailModel : PageModel
         if (!await _settingsService.IsConfiguredAsync())
         {
             return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await ReloadPageDataAsync(planId);
+            return Page();
         }
 
         if (EntrySuiteId <= 0)
@@ -248,6 +262,14 @@ public class PlanDetailModel : PageModel
             return RedirectToPage("/Setup");
         }
 
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await ReloadPageDataAsync(planId);
+            return Page();
+        }
+
         if (string.IsNullOrWhiteSpace(RenameEntryId) || string.IsNullOrWhiteSpace(RenameEntryName))
         {
             ErrorMessage = "Entry identifier and new name are required.";
@@ -284,6 +306,14 @@ public class PlanDetailModel : PageModel
         if (!await _settingsService.IsConfiguredAsync())
         {
             return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await ReloadPageDataAsync(planId);
+            return Page();
         }
 
         if (string.IsNullOrWhiteSpace(DeleteEntryId))
@@ -333,12 +363,12 @@ public class PlanDetailModel : PageModel
                 Milestone = await _testRail.GetMilestoneAsync(Plan.MilestoneId.Value);
 
                 var allPlans = await _testRail.GetPlansForMilestoneAsync(ProjectId, Plan.MilestoneId.Value);
-                OpenPlans = allPlans.Where(p => !p.IsCompleted).ToList();
-                ClosedPlans = allPlans.Where(p => p.IsCompleted).ToList();
+                OpenPlans = allPlans.Where(p => !p.IsCompleted).OrderBy(p => p.Name).ToList();
+                ClosedPlans = allPlans.Where(p => p.IsCompleted).OrderBy(p => p.Name).ToList();
 
                 var allRuns = await _testRail.GetRunsForMilestoneAsync(ProjectId, Plan.MilestoneId.Value);
-                OpenRuns = allRuns.Where(r => !r.IsCompleted).ToList();
-                ClosedRuns = allRuns.Where(r => r.IsCompleted).ToList();
+                OpenRuns = allRuns.Where(r => !r.IsCompleted).OrderBy(r => r.Name).ToList();
+                ClosedRuns = allRuns.Where(r => r.IsCompleted).OrderBy(r => r.Name).ToList();
             }
 
             if (Plan?.Entries is not null)
@@ -368,5 +398,6 @@ public class PlanDetailModel : PageModel
         }
 
         Permissions = await _permissionService.GetPermissionsAsync();
+        WritesEnabled = await _settingsService.AreWritesEnabledAsync();
     }
 }

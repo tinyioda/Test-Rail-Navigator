@@ -86,4 +86,14 @@ public class SettingsService
             && !string.IsNullOrWhiteSpace(settings.Username)
             && !string.IsNullOrWhiteSpace(settings.ApiKey);
     }
+
+    /// <summary>
+    /// Checks if write operations are enabled in the current settings.
+    /// </summary>
+    /// <returns>True if writes are allowed; false otherwise.</returns>
+    public async Task<bool> AreWritesEnabledAsync()
+    {
+        var settings = await GetSettingsAsync();
+        return settings?.AllowWrites == true;
+    }
 }

@@ -91,6 +91,15 @@
   border-color: var(--brand-teal);
 }
 
+/* Navbar mode indicator dot next to the gear icon */
+.navbar-mode-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 /* Content links = brand teal */
 main a:not(.btn):not(.list-group-item) {
   color: var(--brand-teal);
@@ -195,6 +204,58 @@ body {
   -webkit-box-orient: vertical;
   overflow: hidden;
   white-space: normal;
+}
+
+/* Sortable table headers */
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-right: 1.25em !important;
+}
+
+th.sortable::after {
+  content: '\21C5';
+  position: absolute;
+  right: 0.35em;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.3;
+  font-size: 0.75em;
+}
+
+th.sortable.sort-asc::after {
+  content: '\25B2';
+  opacity: 0.8;
+}
+
+th.sortable.sort-desc::after {
+  content: '\25BC';
+  opacity: 0.8;
+}
+
+th.sortable:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Child milestones table on the Project page (3-column layout) */
+.child-milestone-table {
+  table-layout: fixed;
+  white-space: nowrap;
+}
+
+.child-milestone-table th:nth-child(1),
+.child-milestone-table td:nth-child(1) {
+  width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.child-milestone-table th:nth-child(2),
+.child-milestone-table td:nth-child(2),
+.child-milestone-table th:nth-child(3),
+.child-milestone-table td:nth-child(3) {
+  width: 25%;
 }
 
 /* Left-panel section labels (e.g. "Open 4", "Closed 2") */

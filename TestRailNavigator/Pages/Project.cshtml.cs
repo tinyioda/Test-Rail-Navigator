@@ -41,14 +41,24 @@ public class ProjectModel : PageModel
     public Project? Project { get; set; }
 
     /// <summary>
-    /// Gets or sets the open (active/upcoming) milestones for the sidebar.
+    /// Gets or sets the open (active/upcoming) parent milestones for the sidebar.
     /// </summary>
     public List<Milestone> OpenMilestones { get; set; } = [];
 
     /// <summary>
-    /// Gets or sets the closed (completed) milestones for the sidebar.
+    /// Gets or sets the closed (completed) parent milestones for the sidebar.
     /// </summary>
     public List<Milestone> ClosedMilestones { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets child milestones grouped by parent identifier for sidebar nesting.
+    /// </summary>
+    public Dictionary<int, List<Milestone>> MilestoneChildren { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets the child milestones for the selected parent milestone.
+    /// </summary>
+    public List<Milestone> SelectedChildMilestones { get; set; } = [];
 
     /// <summary>
     /// Gets or sets the selected milestone identifier from the query string.
@@ -80,6 +90,11 @@ public class ProjectModel : PageModel
     /// Gets or sets the success message after an action.
     /// </summary>
     public string? SuccessMessage { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether write operations are enabled.
+    /// </summary>
+    public bool WritesEnabled { get; set; }
 
     /// <summary>
     /// Gets or sets the plan name for the create/edit form.
@@ -126,6 +141,7 @@ public class ProjectModel : PageModel
         await LoadMilestonesAsync(projectId);
         await LoadSelectedMilestonePlansAsync(projectId);
         Permissions = await _permissionService.GetPermissionsAsync();
+        WritesEnabled = await _settingsService.AreWritesEnabledAsync();
 
         return Page();
     }
@@ -140,6 +156,14 @@ public class ProjectModel : PageModel
         if (!await _settingsService.IsConfiguredAsync())
         {
             return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await LoadPageDataAsync(projectId);
+            return Page();
         }
 
         if (string.IsNullOrWhiteSpace(PlanName))
@@ -186,6 +210,14 @@ public class ProjectModel : PageModel
             return RedirectToPage("/Setup");
         }
 
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await LoadPageDataAsync(projectId);
+            return Page();
+        }
+
         if (string.IsNullOrWhiteSpace(PlanName))
         {
             ErrorMessage = "Plan name is required.";
@@ -230,6 +262,14 @@ public class ProjectModel : PageModel
             return RedirectToPage("/Setup");
         }
 
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await LoadPageDataAsync(projectId);
+            return Page();
+        }
+
         _consoleLog.Log($"Deleting test plan {PlanId}");
 
         try
@@ -249,7 +289,7 @@ public class ProjectModel : PageModel
     }
 
     /// <summary>
-    /// Loads milestones and splits them into open and closed lists.
+    /// Loads milestones, builds parent/child hierarchy, and splits parents into open and closed lists.
     /// </summary>
     /// <param name="projectId">The project identifier.</param>
     private async Task LoadMilestonesAsync(int projectId)
@@ -257,8 +297,27 @@ public class ProjectModel : PageModel
         try
         {
             var all = await _testRail.GetMilestonesAsync(projectId);
-            OpenMilestones = all.Where(m => !m.IsCompleted).ToList();
-            ClosedMilestones = all.Where(m => m.IsCompleted).ToList();
+
+            // Build children lookup from flat list (child milestones have ParentId set)
+            MilestoneChildren = all
+                .Where(m => m.ParentId.HasValue)
+                .OrderBy(m => m.Name)
+                .GroupBy(m => m.ParentId!.Value)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            // Also include children returned inline on parent milestones
+            foreach (var parent in all.Where(m => m.Milestones is { Count: > 0 }))
+            {
+                if (!MilestoneChildren.ContainsKey(parent.Id))
+                {
+                    MilestoneChildren[parent.Id] = parent.Milestones!.OrderBy(m => m.Name).ToList();
+                }
+            }
+
+            // Only show parent-level milestones in the sidebar
+            var parents = all.Where(m => !m.ParentId.HasValue).ToList();
+            OpenMilestones = parents.Where(m => !m.IsCompleted).OrderBy(m => m.Name).ToList();
+            ClosedMilestones = parents.Where(m => m.IsCompleted).OrderBy(m => m.Name).ToList();
         }
         catch (Exception ex)
         {
@@ -267,7 +326,7 @@ public class ProjectModel : PageModel
     }
 
     /// <summary>
-    /// Loads test plans for the selected milestone.
+    /// Loads test plans and child milestones for the selected milestone.
     /// </summary>
     /// <param name="projectId">The project identifier.</param>
     private async Task LoadSelectedMilestonePlansAsync(int projectId)
@@ -289,6 +348,12 @@ public class ProjectModel : PageModel
 
             MilestonePlans = await _testRail.GetPlansForMilestoneAsync(projectId, MilestoneId.Value);
             MilestoneRuns = await _testRail.GetRunsForMilestoneAsync(projectId, MilestoneId.Value);
+
+            // Load child milestones for the right panel
+            if (MilestoneChildren.TryGetValue(MilestoneId.Value, out var children))
+            {
+                SelectedChildMilestones = children;
+            }
         }
         catch (Exception ex)
         {
@@ -315,5 +380,6 @@ public class ProjectModel : PageModel
         await LoadMilestonesAsync(projectId);
         await LoadSelectedMilestonePlansAsync(projectId);
         Permissions = await _permissionService.GetPermissionsAsync();
+        WritesEnabled = await _settingsService.AreWritesEnabledAsync();
     }
 }
