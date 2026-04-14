@@ -133,6 +133,7 @@ public class SetupModel : PageModel
         {
             Settings.SetupUsername = existing.SetupUsername;
             Settings.SetupPassword = existing.SetupPassword;
+            Settings.DatabasePassword = existing.DatabasePassword;
         }
 
         try

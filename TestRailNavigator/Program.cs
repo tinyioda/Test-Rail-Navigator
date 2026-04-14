@@ -1,4 +1,8 @@
+using Microsoft.EntityFrameworkCore;
+using TestRailNavigator.Data;
 using TestRailNavigator.Services;
+
+SQLitePCL.Batteries_V2.Init();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,7 +26,30 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
+// Encrypted SQLite database
+var settingsService = builder.Services.BuildServiceProvider().GetRequiredService<SettingsService>();
+var settings = settingsService.GetSettingsAsync().GetAwaiter().GetResult();
+var dbPath = Path.Combine(builder.Environment.ContentRootPath, "testrailnavigator.db");
+var dbPassword = settings?.DatabasePassword ?? string.Empty;
+
+var connectionString = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder
+{
+    DataSource = dbPath,
+    Mode = Microsoft.Data.Sqlite.SqliteOpenMode.ReadWriteCreate,
+    Password = dbPassword
+}.ToString();
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlite(connectionString));
+
 var app = builder.Build();
+
+// Ensure the encrypted database is created.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.EnsureCreated();
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

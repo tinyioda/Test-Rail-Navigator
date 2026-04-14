@@ -51,6 +51,11 @@ public class PlanDetailModel : PageModel
     public Milestone? Milestone { get; set; }
 
     /// <summary>
+    /// Gets or sets the parent of the milestone (for breadcrumb navigation).
+    /// </summary>
+    public Milestone? ParentMilestone { get; set; }
+
+    /// <summary>
     /// Gets or sets the project identifier for breadcrumb navigation.
     /// </summary>
     public int ProjectId { get; set; }
@@ -156,6 +161,11 @@ public class PlanDetailModel : PageModel
             if (Plan?.MilestoneId is > 0 && ProjectId > 0)
             {
                 Milestone = await _testRail.GetMilestoneAsync(Plan.MilestoneId.Value);
+
+                if (Milestone?.ParentId.HasValue == true)
+                {
+                    ParentMilestone = await _testRail.GetMilestoneAsync(Milestone.ParentId.Value);
+                }
 
                 var allPlans = await _testRail.GetPlansForMilestoneAsync(ProjectId, Plan.MilestoneId.Value);
                 OpenPlans = allPlans.Where(p => !p.IsCompleted).OrderBy(p => p.Name).ToList();
@@ -361,6 +371,11 @@ public class PlanDetailModel : PageModel
             if (Plan?.MilestoneId is > 0 && ProjectId > 0)
             {
                 Milestone = await _testRail.GetMilestoneAsync(Plan.MilestoneId.Value);
+
+                if (Milestone?.ParentId.HasValue == true)
+                {
+                    ParentMilestone = await _testRail.GetMilestoneAsync(Milestone.ParentId.Value);
+                }
 
                 var allPlans = await _testRail.GetPlansForMilestoneAsync(ProjectId, Plan.MilestoneId.Value);
                 OpenPlans = allPlans.Where(p => !p.IsCompleted).OrderBy(p => p.Name).ToList();

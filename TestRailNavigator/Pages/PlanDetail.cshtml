@@ -10,6 +10,10 @@
         <li class="breadcrumb-item"><a asp-page="/Project" asp-route-projectId="@Model.ProjectId">@(Model.Project?.Name ?? "Project")</a></li>
         @if (Model.Milestone is not null)
         {
+            @if (Model.ParentMilestone is not null)
+            {
+                <li class="breadcrumb-item"><a asp-page="/Project" asp-route-projectId="@Model.ProjectId" asp-route-milestoneId="@Model.ParentMilestone.Id">@Model.ParentMilestone.Name</a></li>
+            }
             <li class="breadcrumb-item"><a asp-page="/Project" asp-route-projectId="@Model.ProjectId" asp-route-milestoneId="@Model.Milestone.Id">@Model.Milestone.Name</a></li>
         }
         <li class="breadcrumb-item active">@Model.Plan?.Name</li>

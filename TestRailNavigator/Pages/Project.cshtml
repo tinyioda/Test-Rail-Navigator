@@ -10,6 +10,10 @@
         @if (Model.SelectedMilestone is not null)
         {
             <li class="breadcrumb-item"><a asp-page="/Project" asp-route-projectId="@Model.Project?.Id">@Model.Project?.Name</a></li>
+            @if (Model.ParentMilestone is not null)
+            {
+                <li class="breadcrumb-item"><a asp-page="/Project" asp-route-projectId="@Model.Project?.Id" asp-route-milestoneId="@Model.ParentMilestone.Id">@Model.ParentMilestone.Name</a></li>
+            }
             <li class="breadcrumb-item active">@Model.SelectedMilestone.Name</li>
         }
         else
