@@ -65,9 +65,13 @@
         </div>
     </footer>
 
-    <environment include="Development">
+    @{
+        var consoleSettings = await SettingsService.GetSettingsAsync();
+    }
+    @if (consoleSettings?.ShowConsole == true)
+    {
         @await Html.PartialAsync("_ConsoleWindow")
-    </environment>
+    }
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>

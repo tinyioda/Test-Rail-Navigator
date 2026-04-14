@@ -72,6 +72,11 @@ public class ProjectModel : PageModel
     public Milestone? SelectedMilestone { get; set; }
 
     /// <summary>
+    /// Gets or sets the parent of the selected milestone (for breadcrumb navigation).
+    /// </summary>
+    public Milestone? ParentMilestone { get; set; }
+
+    /// <summary>
     /// Gets or sets the test plans for the selected milestone.
     /// </summary>
     public List<TestPlan> MilestonePlans { get; set; } = [];
@@ -344,6 +349,18 @@ public class ProjectModel : PageModel
             if (SelectedMilestone is null)
             {
                 SelectedMilestone = await _testRail.GetMilestoneAsync(MilestoneId.Value);
+            }
+
+            // Resolve parent milestone for breadcrumb when viewing a child milestone
+            if (SelectedMilestone?.ParentId.HasValue == true)
+            {
+                ParentMilestone = OpenMilestones.Concat(ClosedMilestones)
+                    .FirstOrDefault(m => m.Id == SelectedMilestone.ParentId.Value);
+
+                if (ParentMilestone is null)
+                {
+                    ParentMilestone = await _testRail.GetMilestoneAsync(SelectedMilestone.ParentId.Value);
+                }
             }
 
             MilestonePlans = await _testRail.GetPlansForMilestoneAsync(projectId, MilestoneId.Value);

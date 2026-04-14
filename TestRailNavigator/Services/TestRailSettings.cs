@@ -37,4 +37,14 @@ public class TestRailSettings
     /// When empty the Setup page is unprotected.
     /// </summary>
     public string SetupPassword { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the console window is shown. Defaults to true.
+    /// </summary>
+    public bool ShowConsole { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the encryption password for the local SQLite database.
+    /// </summary>
+    public string DatabasePassword { get; set; } = string.Empty;
 }

@@ -90,6 +90,7 @@ testrail:
   allowWrites: false
   setupUsername: ""
   setupPassword: ""
+  databasePassword: ""
 
 # Environment variables passed to the container.
 env:

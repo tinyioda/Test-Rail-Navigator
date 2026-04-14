@@ -1,6 +1,11 @@
 # TestRail credentials - never commit
 testrail-settings.json
 
+# Encrypted SQLite database
+*.db
+*.db-shm
+*.db-wal
+
 # .NET
 bin/
 obj/
