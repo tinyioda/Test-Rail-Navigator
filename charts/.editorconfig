@@ -1,0 +1,7 @@
+# Helm charts contain Go template directives that break YAML parsers.
+root = false
+
+[*.{yaml,yml,tpl}]
+generated_code = true
+trim_trailing_whitespace = false
+insert_final_newline = true

@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using TestRailNavigator.Services;
@@ -84,8 +86,8 @@ public class SetupModel : PageModel
             return RedirectToPage();
         }
 
-        if (string.Equals(LoginUsername, settings.SetupUsername, StringComparison.Ordinal)
-            && string.Equals(LoginPassword, settings.SetupPassword, StringComparison.Ordinal))
+        if (FixedTimeEquals(LoginUsername, settings.SetupUsername)
+            && FixedTimeEquals(LoginPassword, settings.SetupPassword))
         {
             HttpContext.Session.SetString(SessionKey, "true");
             return RedirectToPage();
@@ -94,6 +96,21 @@ public class SetupModel : PageModel
         RequiresLogin = true;
         ErrorMessage = "Invalid username or password.";
         return Page();
+    }
+
+    /// <summary>
+    /// Performs a constant-time comparison between two strings to protect against timing attacks.
+    /// </summary>
+    private static bool FixedTimeEquals(string? a, string? b)
+    {
+        if (a is null || b is null)
+        {
+            return false;
+        }
+
+        var ab = Encoding.UTF8.GetBytes(a);
+        var bb = Encoding.UTF8.GetBytes(b);
+        return ab.Length == bb.Length && CryptographicOperations.FixedTimeEquals(ab, bb);
     }
 
     /// <summary>

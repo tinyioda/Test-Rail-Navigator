@@ -27,10 +27,25 @@ builder.Services.AddSession(options =>
 });
 
 // Encrypted SQLite database
-var settingsService = builder.Services.BuildServiceProvider().GetRequiredService<SettingsService>();
-var settings = settingsService.GetSettingsAsync().GetAwaiter().GetResult();
+// Read the password once at startup directly from the settings file to avoid building
+// a throwaway service provider (which would fragment singletons).
 var dbPath = Path.Combine(builder.Environment.ContentRootPath, "testrailnavigator.db");
-var dbPassword = settings?.DatabasePassword ?? string.Empty;
+var dbPassword = string.Empty;
+var settingsPath = Path.Combine(builder.Environment.ContentRootPath, "testrail-settings.json");
+if (File.Exists(settingsPath))
+{
+    try
+    {
+        await using var stream = File.OpenRead(settingsPath);
+        var loaded = await System.Text.Json.JsonSerializer.DeserializeAsync<TestRailSettings>(stream);
+        dbPassword = loaded?.DatabasePassword ?? string.Empty;
+    }
+    catch
+    {
+        // Settings file may be malformed; fall back to an unencrypted DB.
+        dbPassword = string.Empty;
+    }
+}
 
 var connectionString = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder
 {

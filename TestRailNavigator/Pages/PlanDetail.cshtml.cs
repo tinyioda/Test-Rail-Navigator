@@ -190,22 +190,7 @@ public class PlanDetailModel : PageModel
 
             if (Plan?.Entries is not null)
             {
-                foreach (var entry in Plan.Entries)
-                {
-                    foreach (var run in entry.Runs)
-                    {
-                        try
-                        {
-                            var tests = await _testRail.GetTestsAsync(run.Id);
-                            RunTests[run.Id] = tests;
-                        }
-                        catch (Exception ex)
-                        {
-                            _consoleLog.Log($"Failed to load tests for run {run.Id}: {ex.Message}");
-                            RunTests[run.Id] = [];
-                        }
-                    }
-                }
+                await LoadRunTestsAsync(Plan);
             }
         }
         catch (Exception ex)
@@ -498,22 +483,7 @@ public class PlanDetailModel : PageModel
 
             if (Plan?.Entries is not null)
             {
-                foreach (var entry in Plan.Entries)
-                {
-                    foreach (var run in entry.Runs)
-                    {
-                        try
-                        {
-                            var tests = await _testRail.GetTestsAsync(run.Id);
-                            RunTests[run.Id] = tests;
-                        }
-                        catch (Exception ex)
-                        {
-                            _consoleLog.Log($"Failed to load tests for run {run.Id}: {ex.Message}");
-                            RunTests[run.Id] = [];
-                        }
-                    }
-                }
+                await LoadRunTestsAsync(Plan);
             }
         }
         catch (Exception ex)
@@ -524,6 +494,38 @@ public class PlanDetailModel : PageModel
 
         Permissions = await _permissionService.GetPermissionsAsync();
         WritesEnabled = await _settingsService.AreWritesEnabledAsync();
+    }
+
+    /// <summary>
+    /// Fetches tests for every run in the plan in parallel and populates <see cref="RunTests"/>.
+    /// </summary>
+    private async Task LoadRunTestsAsync(TestPlan plan)
+    {
+        if (plan.Entries is null)
+        {
+            return;
+        }
+
+        var runIds = plan.Entries.SelectMany(e => e.Runs).Select(r => r.Id).Distinct().ToList();
+        var fetchTasks = runIds.Select(async runId =>
+        {
+            try
+            {
+                var tests = await _testRail.GetTestsAsync(runId);
+                return (RunId: runId, Tests: tests);
+            }
+            catch (Exception ex)
+            {
+                _consoleLog.Log($"Failed to load tests for run {runId}: {ex.Message}");
+                return (RunId: runId, Tests: new List<Test>());
+            }
+        });
+
+        var results = await Task.WhenAll(fetchTasks);
+        foreach (var (runId, tests) in results)
+        {
+            RunTests[runId] = tests;
+        }
     }
 
     /// <summary>
