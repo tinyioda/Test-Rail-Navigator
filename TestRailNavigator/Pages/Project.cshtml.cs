@@ -120,6 +120,60 @@ public class ProjectModel : PageModel
     public int PlanId { get; set; }
 
     /// <summary>
+    /// Gets or sets the run name for the create/edit form.
+    /// </summary>
+    [BindProperty]
+    public string RunName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the run description for the create/edit form.
+    /// </summary>
+    [BindProperty]
+    public string? RunDescription { get; set; }
+
+    /// <summary>
+    /// Gets or sets the run identifier for update/delete operations.
+    /// </summary>
+    [BindProperty]
+    public int RunId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the child milestone name for the create/edit form.
+    /// </summary>
+    [BindProperty]
+    public string ChildMilestoneName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the child milestone description for the create/edit form.
+    /// </summary>
+    [BindProperty]
+    public string? ChildMilestoneDescription { get; set; }
+
+    /// <summary>
+    /// Gets or sets the child milestone start date for the create/edit form.
+    /// </summary>
+    [BindProperty]
+    public DateTime? ChildMilestoneStartDate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the child milestone due date for the create/edit form.
+    /// </summary>
+    [BindProperty]
+    public DateTime? ChildMilestoneDueDate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the child milestone identifier for update/delete operations.
+    /// </summary>
+    [BindProperty]
+    public int ChildMilestoneId { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the child milestone is completed (for update).
+    /// </summary>
+    [BindProperty]
+    public bool ChildMilestoneIsCompleted { get; set; }
+
+    /// <summary>
     /// Handles GET requests to load the project overview.
     /// Each section is loaded independently so a single API failure does not break the entire page.
     /// </summary>
@@ -286,6 +340,379 @@ public class ProjectModel : PageModel
         catch (Exception ex)
         {
             ErrorMessage = $"Failed to delete test plan: {ex.Message}";
+            _consoleLog.Log(ErrorMessage);
+        }
+
+        await LoadPageDataAsync(projectId);
+        return Page();
+    }
+
+    /// <summary>
+    /// Handles POST requests to create a new standalone test run.
+    /// </summary>
+    /// <param name="projectId">The project identifier.</param>
+    /// <returns>The page result.</returns>
+    public async Task<IActionResult> OnPostCreateRunAsync(int projectId)
+    {
+        if (!await _settingsService.IsConfiguredAsync())
+        {
+            return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await LoadPageDataAsync(projectId);
+            return Page();
+        }
+
+        if (string.IsNullOrWhiteSpace(RunName))
+        {
+            ErrorMessage = "Run name is required.";
+            _consoleLog.Log(ErrorMessage);
+            await LoadPageDataAsync(projectId);
+            return Page();
+        }
+
+        _consoleLog.Log($"Creating test run: {RunName}");
+
+        try
+        {
+            var request = new CreateRunRequest
+            {
+                Name = RunName,
+                Description = RunDescription,
+                MilestoneId = MilestoneId,
+                IncludeAll = false
+            };
+            var created = await _testRail.AddRunAsync(projectId, request);
+            SuccessMessage = $"Test run '{created?.Name}' created successfully.";
+            _consoleLog.Log(SuccessMessage);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to create test run: {ex.Message}";
+            _consoleLog.Log(ErrorMessage);
+        }
+
+        await LoadPageDataAsync(projectId);
+        return Page();
+    }
+
+    /// <summary>
+    /// Handles POST requests to update an existing test run's name and description.
+    /// </summary>
+    /// <param name="projectId">The project identifier.</param>
+    /// <returns>The page result.</returns>
+    public async Task<IActionResult> OnPostEditRunAsync(int projectId)
+    {
+        if (!await _settingsService.IsConfiguredAsync())
+        {
+            return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await LoadPageDataAsync(projectId);
+            return Page();
+        }
+
+        if (string.IsNullOrWhiteSpace(RunName))
+        {
+            ErrorMessage = "Run name is required.";
+            _consoleLog.Log(ErrorMessage);
+            await LoadPageDataAsync(projectId);
+            return Page();
+        }
+
+        _consoleLog.Log($"Updating test run {RunId}: {RunName}");
+
+        try
+        {
+            var request = new UpdateRunRequest
+            {
+                Name = RunName,
+                Description = RunDescription
+            };
+            var updated = await _testRail.UpdateRunAsync(RunId, request);
+            SuccessMessage = $"Test run '{updated?.Name}' updated successfully.";
+            _consoleLog.Log(SuccessMessage);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to update test run: {ex.Message}";
+            _consoleLog.Log(ErrorMessage);
+        }
+
+        await LoadPageDataAsync(projectId);
+        return Page();
+    }
+
+    /// <summary>
+    /// Handles POST requests to delete a test run.
+    /// </summary>
+    /// <param name="projectId">The project identifier.</param>
+    /// <returns>The page result.</returns>
+    public async Task<IActionResult> OnPostDeleteRunAsync(int projectId)
+    {
+        if (!await _settingsService.IsConfiguredAsync())
+        {
+            return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await LoadPageDataAsync(projectId);
+            return Page();
+        }
+
+        _consoleLog.Log($"Deleting test run {RunId}");
+
+        try
+        {
+            await _testRail.DeleteRunAsync(RunId);
+            SuccessMessage = "Test run deleted successfully.";
+            _consoleLog.Log(SuccessMessage);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to delete test run: {ex.Message}";
+            _consoleLog.Log(ErrorMessage);
+        }
+
+        await LoadPageDataAsync(projectId);
+        return Page();
+    }
+
+    /// <summary>
+    /// Handles POST requests to create a new child milestone under the selected milestone.
+    /// </summary>
+    /// <param name="projectId">The project identifier.</param>
+    /// <returns>The page result.</returns>
+    public async Task<IActionResult> OnPostCreateChildMilestoneAsync(int projectId)
+    {
+        if (!await _settingsService.IsConfiguredAsync())
+        {
+            return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await LoadPageDataAsync(projectId);
+            return Page();
+        }
+
+        if (string.IsNullOrWhiteSpace(ChildMilestoneName) || !MilestoneId.HasValue)
+        {
+            ErrorMessage = "Child milestone name and parent milestone are required.";
+            _consoleLog.Log(ErrorMessage);
+            await LoadPageDataAsync(projectId);
+            return Page();
+        }
+
+        _consoleLog.Log($"Creating child milestone: {ChildMilestoneName} under milestone {MilestoneId}");
+
+        try
+        {
+            var request = new MilestoneRequest
+            {
+                Name = ChildMilestoneName,
+                Description = ChildMilestoneDescription,
+                ParentId = MilestoneId.Value,
+                StartOn = ChildMilestoneStartDate.HasValue
+                    ? new DateTimeOffset(ChildMilestoneStartDate.Value, TimeSpan.Zero).ToUnixTimeSeconds()
+                    : null,
+                DueOn = ChildMilestoneDueDate.HasValue
+                    ? new DateTimeOffset(ChildMilestoneDueDate.Value, TimeSpan.Zero).ToUnixTimeSeconds()
+                    : null
+            };
+            var created = await _testRail.AddMilestoneAsync(projectId, request);
+            SuccessMessage = $"Child milestone '{created?.Name}' created successfully.";
+            _consoleLog.Log(SuccessMessage);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to create child milestone: {ex.Message}";
+            _consoleLog.Log(ErrorMessage);
+        }
+
+        await LoadPageDataAsync(projectId);
+        return Page();
+    }
+
+    /// <summary>
+    /// Handles POST requests to update a child milestone.
+    /// </summary>
+    /// <param name="projectId">The project identifier.</param>
+    /// <returns>The page result.</returns>
+    public async Task<IActionResult> OnPostEditChildMilestoneAsync(int projectId)
+    {
+        if (!await _settingsService.IsConfiguredAsync())
+        {
+            return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await LoadPageDataAsync(projectId);
+            return Page();
+        }
+
+        if (string.IsNullOrWhiteSpace(ChildMilestoneName))
+        {
+            ErrorMessage = "Child milestone name is required.";
+            _consoleLog.Log(ErrorMessage);
+            await LoadPageDataAsync(projectId);
+            return Page();
+        }
+
+        _consoleLog.Log($"Updating child milestone {ChildMilestoneId}: {ChildMilestoneName}");
+
+        try
+        {
+            var request = new MilestoneRequest
+            {
+                Name = ChildMilestoneName,
+                Description = ChildMilestoneDescription,
+                IsCompleted = ChildMilestoneIsCompleted,
+                IsStarted = !ChildMilestoneIsCompleted && ChildMilestoneStartDate.HasValue && ChildMilestoneStartDate.Value <= DateTime.Today,
+                StartOn = ChildMilestoneStartDate.HasValue
+                    ? new DateTimeOffset(ChildMilestoneStartDate.Value, TimeSpan.Zero).ToUnixTimeSeconds()
+                    : null,
+                DueOn = ChildMilestoneDueDate.HasValue
+                    ? new DateTimeOffset(ChildMilestoneDueDate.Value, TimeSpan.Zero).ToUnixTimeSeconds()
+                    : null
+            };
+            var updated = await _testRail.UpdateMilestoneAsync(ChildMilestoneId, request);
+            SuccessMessage = $"Child milestone '{updated?.Name}' updated successfully.";
+            _consoleLog.Log(SuccessMessage);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to update child milestone: {ex.Message}";
+            _consoleLog.Log(ErrorMessage);
+        }
+
+        await LoadPageDataAsync(projectId);
+        return Page();
+    }
+
+    /// <summary>
+    /// Handles POST requests to delete a child milestone.
+    /// </summary>
+    /// <param name="projectId">The project identifier.</param>
+    /// <returns>The page result.</returns>
+    public async Task<IActionResult> OnPostDeleteChildMilestoneAsync(int projectId)
+    {
+        if (!await _settingsService.IsConfiguredAsync())
+        {
+            return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await LoadPageDataAsync(projectId);
+            return Page();
+        }
+
+        _consoleLog.Log($"Deleting child milestone {ChildMilestoneId}");
+
+        try
+        {
+            await _testRail.DeleteMilestoneAsync(ChildMilestoneId);
+            SuccessMessage = "Child milestone deleted successfully.";
+            _consoleLog.Log(SuccessMessage);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to delete child milestone: {ex.Message}";
+            _consoleLog.Log(ErrorMessage);
+        }
+
+        await LoadPageDataAsync(projectId);
+        return Page();
+    }
+
+    /// <summary>
+    /// Handles POST requests to close (complete) a test plan. This action cannot be undone.
+    /// </summary>
+    /// <param name="projectId">The project identifier.</param>
+    /// <returns>The page result.</returns>
+    public async Task<IActionResult> OnPostClosePlanAsync(int projectId)
+    {
+        if (!await _settingsService.IsConfiguredAsync())
+        {
+            return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await LoadPageDataAsync(projectId);
+            return Page();
+        }
+
+        _consoleLog.Log($"Closing test plan {PlanId}");
+
+        try
+        {
+            var closed = await _testRail.ClosePlanAsync(PlanId);
+            SuccessMessage = $"Test plan '{closed?.Name}' closed successfully.";
+            _consoleLog.Log(SuccessMessage);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to close test plan: {ex.Message}";
+            _consoleLog.Log(ErrorMessage);
+        }
+
+        await LoadPageDataAsync(projectId);
+        return Page();
+    }
+
+    /// <summary>
+    /// Handles POST requests to close (complete) a test run. This action cannot be undone.
+    /// </summary>
+    /// <param name="projectId">The project identifier.</param>
+    /// <returns>The page result.</returns>
+    public async Task<IActionResult> OnPostCloseRunAsync(int projectId)
+    {
+        if (!await _settingsService.IsConfiguredAsync())
+        {
+            return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await LoadPageDataAsync(projectId);
+            return Page();
+        }
+
+        _consoleLog.Log($"Closing test run {RunId}");
+
+        try
+        {
+            var closed = await _testRail.CloseRunAsync(RunId);
+            SuccessMessage = $"Test run '{closed?.Name}' closed successfully.";
+            _consoleLog.Log(SuccessMessage);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to close test run: {ex.Message}";
             _consoleLog.Log(ErrorMessage);
         }
 

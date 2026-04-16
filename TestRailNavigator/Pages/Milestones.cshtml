@@ -14,8 +14,7 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
-        <h1>Milestones</h1>
-        <h5 class="text-muted mb-0">@Model.Project?.Name</h5>
+        <h1><span class="text-muted fw-semibold">@Model.Project?.Name →</span> Milestones</h1>
     </div>
     @if (Model.WritesEnabled)
     {
@@ -55,6 +54,7 @@ else
             <tr>
                 <th class="sortable" data-sort-type="number">ID</th>
                 <th class="sortable">Name</th>
+                <th class="sortable">Parent</th>
                 <th class="sortable">Status</th>
                 <th class="sortable" data-sort-type="date">Start Date</th>
                 <th class="sortable" data-sort-type="date">Due Date</th>
@@ -67,6 +67,17 @@ else
                 <tr>
                     <td>@milestone.Id</td>
                     <td>@milestone.Name</td>
+                    <td>
+                        @if (milestone.ParentId.HasValue)
+                        {
+                            var parentName = Model.Milestones.FirstOrDefault(m => m.Id == milestone.ParentId.Value)?.Name;
+                            <span class="text-muted small">@(parentName ?? $"#{milestone.ParentId}")</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">—</span>
+                        }
+                    </td>
                     <td>
                         @if (milestone.IsCompleted)
                         {
@@ -112,7 +123,8 @@ else
                                     data-description="@milestone.Description"
                                     data-start="@(milestone.StartOn.HasValue ? DateTimeOffset.FromUnixTimeSeconds(milestone.StartOn.Value).UtcDateTime.ToString("yyyy-MM-dd") : "")"
                                     data-due="@(milestone.DueOn.HasValue ? DateTimeOffset.FromUnixTimeSeconds(milestone.DueOn.Value).UtcDateTime.ToString("yyyy-MM-dd") : "")"
-                                    data-completed="@milestone.IsCompleted.ToString().ToLowerInvariant()">
+                                    data-completed="@milestone.IsCompleted.ToString().ToLowerInvariant()"
+                                    data-parent-id="@(milestone.ParentId?.ToString() ?? "")">
                                 Edit
                             </button>
                             <button type="button" class="btn btn-sm btn-outline-danger"
@@ -148,6 +160,17 @@ else
                     <div class="mb-3">
                         <label for="MilestoneDescription" class="form-label">Description</label>
                         <textarea name="MilestoneDescription" id="createDescription" class="form-control" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="createParentId" class="form-label">Parent Milestone</label>
+                        <select name="ParentMilestoneId" id="createParentId" class="form-select">
+                            <option value="">(None — top-level milestone)</option>
+                            @foreach (var m in Model.Milestones.Where(m => !m.ParentId.HasValue))
+                            {
+                                <option value="@m.Id">@m.Name</option>
+                            }
+                        </select>
+                        <div class="form-text">Select a parent to create a child milestone.</div>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
@@ -187,6 +210,16 @@ else
                     <div class="mb-3">
                         <label for="editDescription" class="form-label">Description</label>
                         <textarea name="MilestoneDescription" id="editDescription" class="form-control" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editParentId" class="form-label">Parent Milestone</label>
+                        <select name="ParentMilestoneId" id="editParentId" class="form-select">
+                            <option value="">(None — top-level milestone)</option>
+                            @foreach (var m in Model.Milestones.Where(m => !m.ParentId.HasValue))
+                            {
+                                <option value="@m.Id">@m.Name</option>
+                            }
+                        </select>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
@@ -248,6 +281,8 @@ else
                 editModal.querySelector('#editStartDate').value = btn.getAttribute('data-start') || '';
                 editModal.querySelector('#editDueDate').value = btn.getAttribute('data-due') || '';
                 editModal.querySelector('#editIsCompleted').checked = btn.getAttribute('data-completed') === 'true';
+                const parentId = btn.getAttribute('data-parent-id');
+                editModal.querySelector('#editParentId').value = parentId || '';
             });
         }
 

@@ -3,16 +3,21 @@ using System.Text.Json.Serialization;
 namespace TestRailNavigator.Models;
 
 /// <summary>
-/// Request model for updating a test run's properties and case selection.
-/// Used by both update_run and update_plan_entry endpoints.
+/// Request model for creating a new standalone test run.
 /// </summary>
-public class UpdateRunRequest
+public class CreateRunRequest
 {
     /// <summary>
-    /// Gets or sets the name of the test run.
+    /// Gets or sets the suite identifier. Required for projects using multiple suites (suite_mode = 2 or 3).
+    /// </summary>
+    [JsonPropertyName("suite_id")]
+    public int? SuiteId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the name of the test run (required).
     /// </summary>
     [JsonPropertyName("name")]
-    public string? Name { get; set; }
+    public string Name { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the description of the test run.
@@ -30,7 +35,7 @@ public class UpdateRunRequest
     /// Gets or sets whether to include all test cases from the suite.
     /// </summary>
     [JsonPropertyName("include_all")]
-    public bool? IncludeAll { get; set; }
+    public bool IncludeAll { get; set; }
 
     /// <summary>
     /// Gets or sets the specific case identifiers to include in the run.

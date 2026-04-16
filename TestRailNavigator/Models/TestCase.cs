@@ -75,6 +75,42 @@ public class TestCase
     public long? UpdatedOn { get; set; }
 
     /// <summary>
+    /// Gets or sets the external references (e.g. JIRA ticket IDs).
+    /// </summary>
+    [JsonPropertyName("refs")]
+    public string? Refs { get; set; }
+
+    /// <summary>
+    /// Gets or sets the milestone identifier the test case belongs to.
+    /// </summary>
+    [JsonPropertyName("milestone_id")]
+    public int? MilestoneId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the template identifier.
+    /// </summary>
+    [JsonPropertyName("template_id")]
+    public int? TemplateId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the preconditions (custom field).
+    /// </summary>
+    [JsonPropertyName("custom_preconds")]
+    public string? Preconditions { get; set; }
+
+    /// <summary>
+    /// Gets or sets the steps (custom field).
+    /// </summary>
+    [JsonPropertyName("custom_steps")]
+    public string? Steps { get; set; }
+
+    /// <summary>
+    /// Gets or sets the expected result (custom field).
+    /// </summary>
+    [JsonPropertyName("custom_expected")]
+    public string? ExpectedResult { get; set; }
+
+    /// <summary>
     /// Gets the human-readable priority name based on the priority identifier.
     /// </summary>
     public string PriorityName => PriorityId switch
@@ -84,5 +120,25 @@ public class TestCase
         3 => "High",
         4 => "Critical",
         _ => "Unknown"
+    };
+
+    /// <summary>
+    /// Gets the human-readable type name based on the type identifier.
+    /// </summary>
+    public string TypeName => TypeId switch
+    {
+        1 => "Acceptance",
+        2 => "Accessibility",
+        3 => "Automated",
+        4 => "Compatibility",
+        5 => "Destructive",
+        6 => "Functional",
+        7 => "Other",
+        8 => "Performance",
+        9 => "Regression",
+        10 => "Security",
+        11 => "Smoke & Sanity",
+        12 => "Usability",
+        _ => ""
     };
 }

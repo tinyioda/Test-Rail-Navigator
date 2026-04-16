@@ -1,0 +1,353 @@
+@page "{testId:int}"
+@model TestDetailModel
+@{
+    ViewData["Title"] = $"Test - {Model.Test?.Title}";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-page="/Index">Projects</a></li>
+        @if (Model.Project is not null)
+        {
+            <li class="breadcrumb-item"><a asp-page="/Project" asp-route-projectId="@Model.Run!.ProjectId">@Model.Project.Name</a></li>
+        }
+        @if (Model.Milestone is not null)
+        {
+            @if (Model.ParentMilestone is not null)
+            {
+                <li class="breadcrumb-item"><a asp-page="/Project" asp-route-projectId="@Model.Run!.ProjectId" asp-route-milestoneId="@Model.ParentMilestone.Id">@Model.ParentMilestone.Name</a></li>
+            }
+            <li class="breadcrumb-item"><a asp-page="/Project" asp-route-projectId="@Model.Run!.ProjectId" asp-route-milestoneId="@Model.Milestone.Id">@Model.Milestone.Name</a></li>
+        }
+        @if (Model.Plan is not null)
+        {
+            <li class="breadcrumb-item"><a asp-page="/PlanDetail" asp-route-planId="@Model.Plan.Id">@Model.Plan.Name</a></li>
+        }
+        @if (Model.Run is not null)
+        {
+            <li class="breadcrumb-item"><a asp-page="/Tests" asp-route-runId="@Model.Run.Id">@Model.Run.Name</a></li>
+        }
+        <li class="breadcrumb-item active">@Model.Test?.Title</li>
+    </ol>
+</nav>
+
+<h1>
+    @if (Model.Milestone is not null)
+    {
+        @if (Model.ParentMilestone is not null)
+        {
+            <span class="text-muted fw-semibold">@Model.ParentMilestone.Name →</span>
+        }
+        <span class="text-muted fw-semibold">@Model.Milestone.Name →</span>
+    }
+    @if (Model.Plan is not null)
+    {
+        <span class="text-muted fw-semibold">@Model.Plan.Name →</span>
+    }
+    @if (Model.Run is not null)
+    {
+        <span class="text-muted fw-semibold">@Model.Run.Name →</span>
+    }
+    @Model.Test?.Title
+</h1>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @Model.SuccessMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @Model.ErrorMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (Model.Test is not null)
+{
+    var badgeClass = Model.Test.StatusId switch
+    {
+        1 => "bg-success",
+        2 => "bg-warning",
+        5 => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    <div class="row">
+        <!-- Left Panel: Parent Hierarchy + Sibling Tests -->
+        <div class="col-lg-3 col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h6 class="mb-0">Navigation</h6>
+                </div>
+                <div class="card-body p-0" style="overflow-y: auto; max-height: 70vh;">
+                    <!-- Parent Hierarchy -->
+                    <div class="panel-section-label">
+                        <h6 class="text-uppercase text-muted small fw-bold mb-0">Hierarchy</h6>
+                    </div>
+                    <div class="list-group list-group-flush">
+                        @if (Model.Project is not null)
+                        {
+                            <a asp-page="/Project" asp-route-projectId="@Model.Run!.ProjectId"
+                               class="list-group-item list-group-item-action px-3 py-2">
+                                <i class="bi bi-folder2 text-muted me-1"></i>
+                                <span class="small">@Model.Project.Name</span>
+                            </a>
+                        }
+                        @if (Model.ParentMilestone is not null)
+                        {
+                            <a asp-page="/Project" asp-route-projectId="@Model.Run!.ProjectId" asp-route-milestoneId="@Model.ParentMilestone.Id"
+                               class="list-group-item list-group-item-action px-3 py-2 ps-4">
+                                <i class="bi bi-flag text-muted me-1"></i>
+                                <span class="small">@Model.ParentMilestone.Name</span>
+                            </a>
+                        }
+                        @if (Model.Milestone is not null)
+                        {
+                            <a asp-page="/Project" asp-route-projectId="@Model.Run!.ProjectId" asp-route-milestoneId="@Model.Milestone.Id"
+                               class="list-group-item list-group-item-action px-3 py-2 @(Model.ParentMilestone is not null ? "ps-5" : "ps-4")">
+                                <i class="bi bi-flag-fill text-muted me-1"></i>
+                                <span class="small">@Model.Milestone.Name</span>
+                            </a>
+                        }
+                        @if (Model.Plan is not null)
+                        {
+                            <a asp-page="/PlanDetail" asp-route-planId="@Model.Plan.Id"
+                               class="list-group-item list-group-item-action px-3 py-2 @(Model.Milestone is not null ? (Model.ParentMilestone is not null ? "ps-5" : "ps-5") : "ps-4")">
+                                <i class="bi bi-clipboard-check text-muted me-1"></i>
+                                <span class="small">@Model.Plan.Name</span>
+                            </a>
+                        }
+                        @if (Model.Run is not null)
+                        {
+                            <a asp-page="/Tests" asp-route-runId="@Model.Run.Id"
+                               class="list-group-item list-group-item-action px-3 py-2 @(Model.Plan is not null || Model.Milestone is not null ? "ps-5" : "ps-4")">
+                                <i class="bi bi-play-circle text-muted me-1"></i>
+                                <span class="small">@Model.Run.Name</span>
+                            </a>
+                        }
+                    </div>
+
+                    <!-- Sibling Tests in Run -->
+                    @if (Model.SiblingTests.Count > 0)
+                    {
+                        <div class="panel-section-label">
+                            <h6 class="text-uppercase text-muted small fw-bold mb-0">
+                                Tests in Run
+                                <span class="badge bg-secondary ms-1">@Model.SiblingTests.Count</span>
+                            </h6>
+                        </div>
+                        <div class="list-group list-group-flush">
+                            @foreach (var sibling in Model.SiblingTests)
+                            {
+                                var isActive = sibling.Id == Model.Test.Id;
+                                var siblingBadge = sibling.StatusId switch
+                                {
+                                    1 => "bg-success",
+                                    2 => "bg-warning",
+                                    5 => "bg-danger",
+                                    _ => "bg-secondary"
+                                };
+                                <a asp-page="/TestDetail" asp-route-testId="@sibling.Id"
+                                   class="list-group-item list-group-item-action px-3 py-2 @(isActive ? "active" : "")">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="@(isActive ? "" : "fw-semibold") small text-truncate me-2">@sibling.Title</span>
+                                        <span class="badge @siblingBadge flex-shrink-0">@sibling.StatusName</span>
+                                    </div>
+                                </a>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Content: Metadata + Test Content -->
+        <div class="col-lg-9 col-md-8">
+            <div class="row">
+                <!-- Metadata Column -->
+                <div class="col-lg-5 mb-4">
+            <!-- Status Card -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Current Status</h6>
+                </div>
+                <div class="card-body text-center">
+                    <span class="badge @badgeClass fs-5 px-4 py-2">@Model.Test.StatusName</span>
+                </div>
+            </div>
+
+            <!-- Metadata Card -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Details</h6>
+                    @if (Model.WritesEnabled)
+                    {
+                        <a asp-page="/TestCaseEdit" asp-route-caseId="@Model.Test.CaseId" asp-route-testId="@Model.Test.Id" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil-square"></i> Edit Case
+                        </a>
+                    }
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <tbody>
+                            <tr>
+                                <td class="text-muted small fw-semibold ps-3">Test ID</td>
+                                <td>T@(Model.Test.Id)</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted small fw-semibold ps-3">Case ID</td>
+                                <td>C@(Model.Test.CaseId)</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted small fw-semibold ps-3">Run</td>
+                                <td>
+                                    @if (Model.Run is not null)
+                                    {
+                                        <a asp-page="/Tests" asp-route-runId="@Model.Run.Id">@Model.Run.Name</a>
+                                    }
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted small fw-semibold ps-3">Priority</td>
+                                <td>@(string.IsNullOrEmpty(Model.Test.PriorityName) ? "—" : Model.Test.PriorityName)</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted small fw-semibold ps-3">Type</td>
+                                <td>@(string.IsNullOrEmpty(Model.Test.TypeName) ? "—" : Model.Test.TypeName)</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted small fw-semibold ps-3">Estimate</td>
+                                <td>@(string.IsNullOrEmpty(Model.Test.Estimate) ? "—" : Model.Test.Estimate)</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted small fw-semibold ps-3">References</td>
+                                <td>@(string.IsNullOrEmpty(Model.Test.Refs) ? "—" : Model.Test.Refs)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Quick Edit Card -->
+            @if (Model.WritesEnabled && Model.Run is not null && !Model.Run.IsCompleted)
+            {
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-pencil"></i> Update Result</h6>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" asp-page-handler="QuickEdit" asp-route-testId="@Model.Test.Id" asp-antiforgery="true">
+                            <div class="mb-3">
+                                <label for="qeStatusId" class="form-label">Status *</label>
+                                <select name="QuickEditStatusId" id="qeStatusId" class="form-select" required>
+                                    <option value="">Select status...</option>
+                                    <option value="1">✅ Passed</option>
+                                    <option value="2">⚠️ Blocked</option>
+                                    <option value="4">🔄 Retest</option>
+                                    <option value="5">❌ Failed</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="qeComment" class="form-label">Comment</label>
+                                <textarea name="QuickEditComment" id="qeComment" class="form-control" rows="3" placeholder="Optional notes..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-warning w-100">Save Result</button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Content Column -->
+        <div class="col-lg-7 mb-4">
+            @if (!string.IsNullOrEmpty(Model.Test.Preconditions))
+            {
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">Preconditions</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="bg-light border rounded p-3 small" style="white-space: pre-wrap;">@Model.Test.Preconditions</div>
+                    </div>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(Model.Test.Steps))
+            {
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">Steps</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="bg-light border rounded p-3 small" style="white-space: pre-wrap;">@Model.Test.Steps</div>
+                    </div>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(Model.Test.ExpectedResult))
+            {
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">Expected Result</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="bg-light border rounded p-3 small" style="white-space: pre-wrap;">@Model.Test.ExpectedResult</div>
+                    </div>
+                </div>
+            }
+
+            <!-- Result History -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Result History</h6>
+                    <span class="badge bg-secondary">@Model.Results.Count result(s)</span>
+                </div>
+                <div class="card-body p-0">
+                    @if (Model.Results.Count == 0)
+                    {
+                        <p class="p-3 mb-0 text-muted">No results recorded yet.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th class="sortable">Status</th>
+                                        <th class="sortable">Comment</th>
+                                        <th class="sortable" data-sort-type="date">Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var result in Model.Results)
+                                    {
+                                        var resultBadge = result.StatusId switch
+                                        {
+                                            1 => "bg-success",
+                                            2 => "bg-warning",
+                                            4 => "bg-info",
+                                            5 => "bg-danger",
+                                            _ => "bg-secondary"
+                                        };
+                                        <tr>
+                                            <td><span class="badge @resultBadge">@result.StatusName</span></td>
+                                            <td class="small">@(string.IsNullOrEmpty(result.Comment) ? "—" : result.Comment)</td>
+                                            <td class="small text-nowrap">@DateTimeOffset.FromUnixTimeSeconds(result.CreatedOn).UtcDateTime.ToString("yyyy-MM-dd HH:mm UTC")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+            </div>
+        </div>
+    </div>
+}

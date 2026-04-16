@@ -214,6 +214,19 @@ public class TestRailClient
     }
 
     /// <summary>
+    /// Gets a specific test by identifier.
+    /// </summary>
+    /// <param name="testId">The test identifier.</param>
+    /// <returns>The test, or null if not found.</returns>
+    public async Task<Test?> GetTestAsync(int testId)
+    {
+        await EnsureConfiguredAsync();
+        var response = await _httpClient.GetAsync($"{_apiBase}get_test/{testId}");
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<Test>(_jsonOptions);
+    }
+
+    /// <summary>
     /// Gets all tests for a specific test run.
     /// </summary>
     /// <param name="runId">The test run identifier.</param>
@@ -233,6 +246,21 @@ public class TestRailClient
     {
         await EnsureConfiguredAsync();
         return await GetAllPaginatedAsync<TestResult>($"{_apiBase}get_results/{testId}", "results");
+    }
+
+    /// <summary>
+    /// Adds a test result for a specific case within a run.
+    /// </summary>
+    /// <param name="runId">The test run identifier.</param>
+    /// <param name="caseId">The test case identifier.</param>
+    /// <param name="request">The result to add.</param>
+    /// <returns>The created test result.</returns>
+    public async Task<TestResult?> AddResultForCaseAsync(int runId, int caseId, AddResultRequest request)
+    {
+        await EnsureConfiguredAsync();
+        var response = await _httpClient.PostAsJsonAsync($"{_apiBase}add_result_for_case/{runId}/{caseId}", request, _jsonOptions);
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<TestResult>(_jsonOptions);
     }
 
     /// <summary>
@@ -492,6 +520,47 @@ public class TestRailClient
     }
 
     /// <summary>
+    /// Gets a specific test case by identifier.
+    /// </summary>
+    /// <param name="caseId">The test case identifier.</param>
+    /// <returns>The test case, or null if not found.</returns>
+    public async Task<TestCase?> GetCaseAsync(int caseId)
+    {
+        await EnsureConfiguredAsync();
+        var response = await _httpClient.GetAsync($"{_apiBase}get_case/{caseId}");
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<TestCase>(_jsonOptions);
+    }
+
+    /// <summary>
+    /// Updates an existing test case.
+    /// </summary>
+    /// <param name="caseId">The test case identifier.</param>
+    /// <param name="request">The update request containing the fields to change.</param>
+    /// <returns>The updated test case.</returns>
+    public async Task<TestCase?> UpdateCaseAsync(int caseId, UpdateTestCaseRequest request)
+    {
+        await EnsureConfiguredAsync();
+        var response = await _httpClient.PostAsJsonAsync($"{_apiBase}update_case/{caseId}", request, _jsonOptions);
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<TestCase>(_jsonOptions);
+    }
+
+    /// <summary>
+    /// Creates a new standalone test run in a project.
+    /// </summary>
+    /// <param name="projectId">The project identifier.</param>
+    /// <param name="request">The create run request.</param>
+    /// <returns>The created test run.</returns>
+    public async Task<TestRun?> AddRunAsync(int projectId, CreateRunRequest request)
+    {
+        await EnsureConfiguredAsync();
+        var response = await _httpClient.PostAsJsonAsync($"{_apiBase}add_run/{projectId}", request, _jsonOptions);
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<TestRun>(_jsonOptions);
+    }
+
+    /// <summary>
     /// Updates a standalone test run's case selection.
     /// </summary>
     /// <param name="runId">The test run identifier.</param>
@@ -503,6 +572,30 @@ public class TestRailClient
         var response = await _httpClient.PostAsJsonAsync($"{_apiBase}update_run/{runId}", request, _jsonOptions);
         await EnsureSuccessAsync(response);
         return await response.Content.ReadFromJsonAsync<TestRun>(_jsonOptions);
+    }
+
+    /// <summary>
+    /// Closes (completes) a test run. This action cannot be undone.
+    /// </summary>
+    /// <param name="runId">The test run identifier.</param>
+    /// <returns>The closed test run.</returns>
+    public async Task<TestRun?> CloseRunAsync(int runId)
+    {
+        await EnsureConfiguredAsync();
+        var response = await _httpClient.PostAsJsonAsync($"{_apiBase}close_run/{runId}", new { }, _jsonOptions);
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<TestRun>(_jsonOptions);
+    }
+
+    /// <summary>
+    /// Deletes an existing test run. This action cannot be undone.
+    /// </summary>
+    /// <param name="runId">The test run identifier.</param>
+    public async Task DeleteRunAsync(int runId)
+    {
+        await EnsureConfiguredAsync();
+        var response = await _httpClient.PostAsJsonAsync($"{_apiBase}delete_run/{runId}", new { }, _jsonOptions);
+        await EnsureSuccessAsync(response);
     }
 
     /// <summary>
@@ -544,6 +637,55 @@ public class TestRailClient
     {
         await EnsureConfiguredAsync();
         var response = await _httpClient.PostAsJsonAsync<object>($"{_apiBase}delete_plan_entry/{planId}/{entryId}", new { }, _jsonOptions);
+        await EnsureSuccessAsync(response);
+    }
+
+    /// <summary>
+    /// Closes (completes) a test plan. This action cannot be undone.
+    /// </summary>
+    /// <param name="planId">The test plan identifier.</param>
+    /// <returns>The closed test plan.</returns>
+    public async Task<TestPlan?> ClosePlanAsync(int planId)
+    {
+        await EnsureConfiguredAsync();
+        var response = await _httpClient.PostAsJsonAsync($"{_apiBase}close_plan/{planId}", new { }, _jsonOptions);
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<TestPlan>(_jsonOptions);
+    }
+
+    /// <summary>
+    /// Updates an existing project.
+    /// </summary>
+    /// <param name="projectId">The project identifier.</param>
+    /// <param name="request">The project update request.</param>
+    /// <returns>The updated project.</returns>
+    public async Task<Project?> UpdateProjectAsync(int projectId, CreateProjectRequest request)
+    {
+        await EnsureConfiguredAsync();
+        var response = await _httpClient.PostAsJsonAsync($"{_apiBase}update_project/{projectId}", request, _jsonOptions);
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<Project>(_jsonOptions);
+    }
+
+    /// <summary>
+    /// Deletes a project. This action cannot be undone.
+    /// </summary>
+    /// <param name="projectId">The project identifier.</param>
+    public async Task DeleteProjectAsync(int projectId)
+    {
+        await EnsureConfiguredAsync();
+        var response = await _httpClient.PostAsJsonAsync<object>($"{_apiBase}delete_project/{projectId}", new { }, _jsonOptions);
+        await EnsureSuccessAsync(response);
+    }
+
+    /// <summary>
+    /// Deletes an existing test case. This action cannot be undone.
+    /// </summary>
+    /// <param name="caseId">The test case identifier.</param>
+    public async Task DeleteCaseAsync(int caseId)
+    {
+        await EnsureConfiguredAsync();
+        var response = await _httpClient.PostAsJsonAsync<object>($"{_apiBase}delete_case/{caseId}", new { }, _jsonOptions);
         await EnsureSuccessAsync(response);
     }
 }

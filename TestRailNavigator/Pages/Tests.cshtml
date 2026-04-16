@@ -20,28 +20,6 @@
     </ol>
 </nav>
 
-<h1>@Model.Run?.Name</h1>
-@if (Model.Milestone is not null)
-{
-    <p class="text-muted">@Model.Milestone.Name</p>
-}
-
-@if (!string.IsNullOrEmpty(Model.SuccessMessage))
-{
-    <div class="alert alert-success alert-dismissible fade show">
-        @Model.SuccessMessage
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-}
-
-@if (!string.IsNullOrEmpty(Model.ErrorMessage))
-{
-    <div class="alert alert-danger alert-dismissible fade show">
-        @Model.ErrorMessage
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-}
-
 <div class="row">
     <!-- Left Panel: Milestone Plans & Runs -->
     @if (Model.Milestone is not null)
@@ -156,13 +134,43 @@
 
     <!-- Right Side: Run Tests -->
     <div class="@(Model.Milestone is not null ? "col-lg-9 col-md-8" : "col-12")">
+        <h1>
+            @if (Model.Milestone is not null)
+            {
+                @if (Model.ParentMilestone is not null)
+                {
+                    <span class="text-muted fw-semibold">@Model.ParentMilestone.Name →</span>
+                }
+                <span class="text-muted fw-semibold">@Model.Milestone.Name →</span>
+            }
+            @Model.Run?.Name
+        </h1>
+
+        @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+        {
+            <div class="alert alert-success alert-dismissible fade show">
+                @Model.SuccessMessage
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-danger alert-dismissible fade show">
+                @Model.ErrorMessage
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+
         @if (Model.Run is not null)
         {
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4 class="mb-0">Tests</h4>
+            <div class="d-flex justify-content-end mb-3">
                 @if (Model.WritesEnabled && !Model.Run.IsCompleted)
                 {
                     <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#closeRunModal">
+                            <i class="bi bi-lock"></i> Close Run
+                        </button>
                         <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#copyTestsModal">
                             <i class="bi bi-copy"></i> Copy From Run
                         </button>
@@ -342,26 +350,79 @@
                                     <th class="sortable">Case ID</th>
                                     <th class="sortable">Title</th>
                                     <th class="sortable">Status</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var test in Model.Tests)
                                 {
+                                    var badgeClass = test.StatusId switch
+                                    {
+                                        1 => "bg-success",
+                                        2 => "bg-warning",
+                                        5 => "bg-danger",
+                                        _ => "bg-secondary"
+                                    };
                                     <tr>
                                         <td>@test.Id</td>
-                                        <td>C@test.CaseId</td>
-                                        <td>@test.Title</td>
+                                        <td>C@(test.CaseId)</td>
+                                        <td><a asp-page="/TestDetail" asp-route-testId="@test.Id" class="text-decoration-none">@test.Title</a></td>
                                         <td>
-                                            @{
-                                                var badgeClass = test.StatusId switch
-                                                {
-                                                    1 => "bg-success",
-                                                    2 => "bg-warning",
-                                                    5 => "bg-danger",
-                                                    _ => "bg-secondary"
-                                                };
-                                            }
                                             <span class="badge @badgeClass">@test.StatusName</span>
+                                        </td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-outline-info quick-view-btn"
+                                                    data-test-id="@test.Id"
+                                                    data-case-id="@test.CaseId"
+                                                    data-title="@test.Title"
+                                                    data-status="@test.StatusName"
+                                                    data-status-class="@badgeClass"
+                                                    data-priority="@test.PriorityName"
+                                                    data-type="@test.TypeName"
+                                                    data-estimate="@test.Estimate"
+                                                    data-refs="@test.Refs"
+                                                    data-preconds="@test.Preconditions"
+                                                    data-steps="@test.Steps"
+                                                    data-expected="@test.ExpectedResult"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#quickViewModal">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            @if (!Model.Run.IsCompleted)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-warning quick-edit-btn"
+                                                        data-test-id="@test.Id"
+                                                        data-case-id="@test.CaseId"
+                                                        data-title="@test.Title"
+                                                        data-status-id="@test.StatusId"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#quickEditModal">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                            }
+                                            @if (Model.WritesEnabled)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-primary quick-case-edit-btn"
+                                                        data-case-id="@test.CaseId"
+                                                        data-title="@test.Title"
+                                                        data-type-id="@test.TypeId"
+                                                        data-priority-id="@test.PriorityId"
+                                                        data-estimate="@test.Estimate"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#quickCaseEditModal">
+                                                    <i class="bi bi-gear"></i>
+                                                </button>
+                                                @if (!Model.Run.IsCompleted)
+                                                {
+                                                    <button type="button" class="btn btn-sm btn-outline-danger remove-test-btn"
+                                                            data-case-id="@test.CaseId"
+                                                            data-title="@test.Title"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#removeTestModal">
+                                                        <i class="bi bi-x-circle"></i>
+                                                    </button>
+                                                }
+                                            }
                                         </td>
                                     </tr>
                                 }
@@ -545,7 +606,7 @@
                                             <td>
                                                 <input type="checkbox" name="SelectedCaseIds" value="@tc.Id" class="form-check-input" />
                                             </td>
-                                            <td class="text-muted small">C@tc.Id</td>
+                                            <td class="text-muted small">C@(tc.Id)</td>
                                             <td>@tc.Title</td>
                                             <td>
                                                 @{
@@ -574,3 +635,331 @@
         </div>
     </div>
 </div>
+
+<!-- Quick View Modal -->
+<div class="modal fade" id="quickViewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <span id="qvTitle"></span>
+                    <span id="qvStatusBadge" class="badge ms-2"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-sm-4">
+                        <span class="text-muted small">Test ID</span>
+                        <div class="fw-semibold" id="qvTestId"></div>
+                    </div>
+                    <div class="col-sm-4">
+                        <span class="text-muted small">Case ID</span>
+                        <div class="fw-semibold" id="qvCaseId"></div>
+                    </div>
+                    <div class="col-sm-4">
+                        <span class="text-muted small">Priority</span>
+                        <div class="fw-semibold" id="qvPriority"></div>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-sm-4">
+                        <span class="text-muted small">Type</span>
+                        <div class="fw-semibold" id="qvType"></div>
+                    </div>
+                    <div class="col-sm-4">
+                        <span class="text-muted small">Estimate</span>
+                        <div class="fw-semibold" id="qvEstimate"></div>
+                    </div>
+                    <div class="col-sm-4">
+                        <span class="text-muted small">References</span>
+                        <div class="fw-semibold" id="qvRefs"></div>
+                    </div>
+                </div>
+                <hr />
+                <div class="mb-3" id="qvPrecondsSection">
+                    <h6 class="text-muted">Preconditions</h6>
+                    <div class="border rounded p-2 bg-light small" id="qvPreconds" style="white-space: pre-wrap; max-height: 200px; overflow-y: auto;"></div>
+                </div>
+                <div class="mb-3" id="qvStepsSection">
+                    <h6 class="text-muted">Steps</h6>
+                    <div class="border rounded p-2 bg-light small" id="qvSteps" style="white-space: pre-wrap; max-height: 200px; overflow-y: auto;"></div>
+                </div>
+                <div class="mb-3" id="qvExpectedSection">
+                    <h6 class="text-muted">Expected Result</h6>
+                    <div class="border rounded p-2 bg-light small" id="qvExpected" style="white-space: pre-wrap; max-height: 200px; overflow-y: auto;"></div>
+                </div>
+                <hr />
+                <h6 class="text-muted">Recent Results</h6>
+                <div id="qvResultsLoading" class="text-center py-3">
+                    <div class="spinner-border spinner-border-sm text-muted" role="status"></div>
+                    <span class="text-muted small ms-2">Loading results…</span>
+                </div>
+                <div id="qvResultsEmpty" class="text-muted small d-none">No results recorded yet.</div>
+                <div class="table-responsive d-none" id="qvResultsTable">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Status</th>
+                                <th>Comment</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="qvResultsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a id="qvDetailLink" class="btn btn-outline-primary" href="#"><i class="bi bi-box-arrow-up-right"></i> View Full Details</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Edit Modal -->
+<div class="modal fade" id="quickEditModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="QuickEdit" asp-route-runId="@Model.Run?.Id" asp-antiforgery="true">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-pencil"></i> Quick Edit — <span id="qeTitle"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="QuickEditCaseId" id="qeCaseId" />
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Test</label>
+                        <div class="fw-semibold" id="qeTestLabel"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="qeStatusId" class="form-label">Status *</label>
+                        <select name="QuickEditStatusId" id="qeStatusId" class="form-select" required>
+                            <option value="">Select status...</option>
+                            <option value="1">✅ Passed</option>
+                            <option value="2">⚠️ Blocked</option>
+                            <option value="4">🔄 Retest</option>
+                            <option value="5">❌ Failed</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="qeComment" class="form-label">Comment</label>
+                        <textarea name="QuickEditComment" id="qeComment" class="form-control" rows="3" placeholder="Optional notes..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">Save Result</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Case Edit Modal -->
+<div class="modal fade" id="quickCaseEditModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="QuickCaseEdit" asp-route-runId="@Model.Run?.Id" asp-antiforgery="true">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-gear"></i> Edit Case — <span id="qcTitle"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="EditCaseId" id="qcCaseId" />
+                    <div class="mb-3">
+                        <label for="qcCaseTitle" class="form-label">Title *</label>
+                        <input type="text" name="EditCaseTitle" id="qcCaseTitle" class="form-control" required />
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="qcTypeId" class="form-label">Type</label>
+                            <select name="EditCaseTypeId" id="qcTypeId" class="form-select">
+                                <option value="">None</option>
+                                <option value="1">Acceptance</option>
+                                <option value="2">Accessibility</option>
+                                <option value="3">Automated</option>
+                                <option value="4">Compatibility</option>
+                                <option value="5">Destructive</option>
+                                <option value="6">Functional</option>
+                                <option value="7">Other</option>
+                                <option value="8">Performance</option>
+                                <option value="9">Regression</option>
+                                <option value="10">Security</option>
+                                <option value="11">Smoke &amp; Sanity</option>
+                                <option value="12">Usability</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="qcPriorityId" class="form-label">Priority</label>
+                            <select name="EditCasePriorityId" id="qcPriorityId" class="form-select">
+                                <option value="">None</option>
+                                <option value="1">Low</option>
+                                <option value="2">Medium</option>
+                                <option value="3">High</option>
+                                <option value="4">Critical</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="qcEstimate" class="form-label">Estimate</label>
+                        <input type="text" name="EditCaseEstimate" id="qcEstimate" class="form-control" placeholder="e.g. 30s or 1m 45s" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Case</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Close Run Modal -->
+<div class="modal fade" id="closeRunModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="CloseRun" asp-route-runId="@Model.Run?.Id" asp-antiforgery="true">
+                <div class="modal-header">
+                    <h5 class="modal-title">Close Test Run</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to close test run <strong>@Model.Run?.Name</strong>?</p>
+                    <p class="text-danger small">This action cannot be undone. The run will be marked as completed and no further changes can be made.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">Close Run</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Remove Test From Run Modal -->
+<div class="modal fade" id="removeTestModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="RemoveTest" asp-route-runId="@Model.Run?.Id" asp-antiforgery="true">
+                <input type="hidden" name="DeleteCaseId" id="removeTestCaseId" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Remove Test From Run</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to remove <strong id="removeTestName"></strong> from this run?</p>
+                    <p class="text-muted small">The test case will remain in the library. Only its association with this run will be removed.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Remove</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    document.getElementById('quickViewModal').addEventListener('show.bs.modal', function (event) {
+        var btn = event.relatedTarget;
+        var testId = btn.getAttribute('data-test-id');
+
+        document.getElementById('qvTitle').textContent = btn.getAttribute('data-title');
+        var badge = document.getElementById('qvStatusBadge');
+        badge.textContent = btn.getAttribute('data-status');
+        badge.className = 'badge ms-2 ' + btn.getAttribute('data-status-class');
+
+        document.getElementById('qvTestId').textContent = 'T' + testId;
+        document.getElementById('qvDetailLink').href = '/TestDetail/' + testId;
+        document.getElementById('qvCaseId').textContent = 'C' + btn.getAttribute('data-case-id');
+        document.getElementById('qvPriority').textContent = btn.getAttribute('data-priority') || '—';
+        document.getElementById('qvType').textContent = btn.getAttribute('data-type') || '—';
+        document.getElementById('qvEstimate').textContent = btn.getAttribute('data-estimate') || '—';
+        document.getElementById('qvRefs').textContent = btn.getAttribute('data-refs') || '—';
+
+        function toggleSection(sectionId, contentId, value) {
+            var section = document.getElementById(sectionId);
+            var content = document.getElementById(contentId);
+            if (value) {
+                content.textContent = value;
+                section.classList.remove('d-none');
+            } else {
+                section.classList.add('d-none');
+            }
+        }
+        toggleSection('qvPrecondsSection', 'qvPreconds', btn.getAttribute('data-preconds'));
+        toggleSection('qvStepsSection', 'qvSteps', btn.getAttribute('data-steps'));
+        toggleSection('qvExpectedSection', 'qvExpected', btn.getAttribute('data-expected'));
+
+        var loading = document.getElementById('qvResultsLoading');
+        var empty = document.getElementById('qvResultsEmpty');
+        var table = document.getElementById('qvResultsTable');
+        var tbody = document.getElementById('qvResultsBody');
+        loading.classList.remove('d-none');
+        empty.classList.add('d-none');
+        table.classList.add('d-none');
+        tbody.innerHTML = '';
+
+        var runId = @(Model.Run?.Id ?? 0);
+        fetch('?runId=' + runId + '&handler=Results&testId=' + testId)
+            .then(function (r) { return r.json(); })
+            .then(function (results) {
+                loading.classList.add('d-none');
+                if (!results || results.length === 0) {
+                    empty.classList.remove('d-none');
+                    return;
+                }
+                table.classList.remove('d-none');
+                var statusMap = { 1: ['Passed','bg-success'], 2: ['Blocked','bg-warning'], 3: ['Untested','bg-secondary'], 4: ['Retest','bg-info'], 5: ['Failed','bg-danger'] };
+                results.forEach(function (r) {
+                    var tr = document.createElement('tr');
+                    var info = statusMap[r.statusId] || ['Unknown','bg-secondary'];
+                    tr.innerHTML = '<td><span class="badge ' + info[1] + '">' + info[0] + '</span></td>'
+                        + '<td class="small">' + (r.comment || '<span class="text-muted">—</span>') + '</td>'
+                        + '<td class="small text-nowrap">' + r.createdOn + '</td>';
+                    tbody.appendChild(tr);
+                });
+            })
+            .catch(function () {
+                loading.classList.add('d-none');
+                empty.textContent = 'Failed to load results.';
+                empty.classList.remove('d-none');
+            });
+    });
+
+    document.getElementById('quickEditModal')?.addEventListener('show.bs.modal', function (event) {
+        var btn = event.relatedTarget;
+        document.getElementById('qeTitle').textContent = btn.getAttribute('data-title');
+        document.getElementById('qeTestLabel').textContent = 'T' + btn.getAttribute('data-test-id') + ' / C' + btn.getAttribute('data-case-id');
+        document.getElementById('qeCaseId').value = btn.getAttribute('data-case-id');
+        var currentStatus = btn.getAttribute('data-status-id');
+        var select = document.getElementById('qeStatusId');
+        select.value = (currentStatus && currentStatus !== '3') ? currentStatus : '';
+        document.getElementById('qeComment').value = '';
+    });
+
+    document.getElementById('quickCaseEditModal')?.addEventListener('show.bs.modal', function (event) {
+        var btn = event.relatedTarget;
+        document.getElementById('qcTitle').textContent = btn.getAttribute('data-title');
+        document.getElementById('qcCaseId').value = btn.getAttribute('data-case-id');
+        document.getElementById('qcCaseTitle').value = btn.getAttribute('data-title');
+        var typeId = btn.getAttribute('data-type-id');
+        document.getElementById('qcTypeId').value = (typeId && typeId !== '0') ? typeId : '';
+        var priorityId = btn.getAttribute('data-priority-id');
+        document.getElementById('qcPriorityId').value = (priorityId && priorityId !== '0') ? priorityId : '';
+        document.getElementById('qcEstimate').value = btn.getAttribute('data-estimate') || '';
+    });
+
+    document.getElementById('removeTestModal')?.addEventListener('show.bs.modal', function (event) {
+        var btn = event.relatedTarget;
+        document.getElementById('removeTestCaseId').value = btn.getAttribute('data-case-id');
+        document.getElementById('removeTestName').textContent = btn.getAttribute('data-title');
+    });
+</script>
+}

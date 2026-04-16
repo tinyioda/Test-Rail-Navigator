@@ -1,0 +1,178 @@
+@page "{caseId:int}"
+@model TestCaseEditModel
+@{
+    ViewData["Title"] = $"Edit - C{Model.TestCase?.Id} {Model.TestCase?.Title}";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-page="/Index">Projects</a></li>
+        @if (Model.Project is not null && Model.Run is not null)
+        {
+            <li class="breadcrumb-item"><a asp-page="/Project" asp-route-projectId="@Model.Run.ProjectId">@Model.Project.Name</a></li>
+        }
+        @if (Model.Milestone is not null && Model.Run is not null)
+        {
+            @if (Model.ParentMilestone is not null)
+            {
+                <li class="breadcrumb-item"><a asp-page="/Project" asp-route-projectId="@Model.Run.ProjectId" asp-route-milestoneId="@Model.ParentMilestone.Id">@Model.ParentMilestone.Name</a></li>
+            }
+            <li class="breadcrumb-item"><a asp-page="/Project" asp-route-projectId="@Model.Run.ProjectId" asp-route-milestoneId="@Model.Milestone.Id">@Model.Milestone.Name</a></li>
+        }
+        @if (Model.Run is not null)
+        {
+            <li class="breadcrumb-item"><a asp-page="/Tests" asp-route-runId="@Model.Run.Id">@Model.Run.Name</a></li>
+        }
+        @if (Model.SourceTest is not null)
+        {
+            <li class="breadcrumb-item"><a asp-page="/TestDetail" asp-route-testId="@Model.SourceTest.Id">@Model.SourceTest.Title</a></li>
+        }
+        <li class="breadcrumb-item active">Edit C@(Model.TestCase?.Id)</li>
+    </ol>
+</nav>
+
+<h1>
+    <i class="bi bi-pencil-square"></i>
+    Edit Test Case — C@(Model.TestCase?.Id)
+</h1>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @Model.SuccessMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @Model.ErrorMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (Model.TestCase is not null)
+{
+    @if (!Model.WritesEnabled)
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-lock"></i> Write operations are disabled. Enable <strong>AllowWrites</strong> in settings to save changes.
+        </div>
+    }
+
+    <form method="post" asp-route-caseId="@Model.TestCase.Id" asp-route-testId="@Model.TestId" asp-antiforgery="true">
+        <div class="row">
+            <!-- Left Column: Core Properties -->
+            <div class="col-lg-5 col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Properties</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="caseTitle" class="form-label">Title *</label>
+                            <input type="text" name="CaseTitle" id="caseTitle" class="form-control" value="@Model.CaseTitle" required />
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="caseTypeId" class="form-label">Type</label>
+                                <select name="CaseTypeId" id="caseTypeId" class="form-select">
+                                    <option value="">None</option>
+                                    <option value="1" selected="@(Model.CaseTypeId == 1)">Acceptance</option>
+                                    <option value="2" selected="@(Model.CaseTypeId == 2)">Accessibility</option>
+                                    <option value="3" selected="@(Model.CaseTypeId == 3)">Automated</option>
+                                    <option value="4" selected="@(Model.CaseTypeId == 4)">Compatibility</option>
+                                    <option value="5" selected="@(Model.CaseTypeId == 5)">Destructive</option>
+                                    <option value="6" selected="@(Model.CaseTypeId == 6)">Functional</option>
+                                    <option value="7" selected="@(Model.CaseTypeId == 7)">Other</option>
+                                    <option value="8" selected="@(Model.CaseTypeId == 8)">Performance</option>
+                                    <option value="9" selected="@(Model.CaseTypeId == 9)">Regression</option>
+                                    <option value="10" selected="@(Model.CaseTypeId == 10)">Security</option>
+                                    <option value="11" selected="@(Model.CaseTypeId == 11)">Smoke &amp; Sanity</option>
+                                    <option value="12" selected="@(Model.CaseTypeId == 12)">Usability</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="casePriorityId" class="form-label">Priority</label>
+                                <select name="CasePriorityId" id="casePriorityId" class="form-select">
+                                    <option value="">None</option>
+                                    <option value="1" selected="@(Model.CasePriorityId == 1)">Low</option>
+                                    <option value="2" selected="@(Model.CasePriorityId == 2)">Medium</option>
+                                    <option value="3" selected="@(Model.CasePriorityId == 3)">High</option>
+                                    <option value="4" selected="@(Model.CasePriorityId == 4)">Critical</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="caseEstimate" class="form-label">Estimate</label>
+                                <input type="text" name="CaseEstimate" id="caseEstimate" class="form-control" value="@Model.CaseEstimate" placeholder="e.g. 30s or 1m 45s" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="caseRefs" class="form-label">References</label>
+                                <input type="text" name="CaseRefs" id="caseRefs" class="form-control" value="@Model.CaseRefs" placeholder="e.g. JIRA-123" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Content Fields -->
+            <div class="col-lg-7 col-md-6 mb-4">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">Preconditions</h6>
+                    </div>
+                    <div class="card-body">
+                        <textarea name="CasePreconditions" id="casePreconditions" class="form-control" rows="5" placeholder="Prerequisites or setup steps...">@Model.CasePreconditions</textarea>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">Steps</h6>
+                    </div>
+                    <div class="card-body">
+                        <textarea name="CaseSteps" id="caseSteps" class="form-control" rows="6" placeholder="Step-by-step instructions...">@Model.CaseSteps</textarea>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">Expected Result</h6>
+                    </div>
+                    <div class="card-body">
+                        <textarea name="CaseExpectedResult" id="caseExpectedResult" class="form-control" rows="5" placeholder="What should happen...">@Model.CaseExpectedResult</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                @if (Model.SourceTest is not null)
+                {
+                    <a asp-page="/TestDetail" asp-route-testId="@Model.SourceTest.Id" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Test
+                    </a>
+                }
+                else if (Model.Run is not null)
+                {
+                    <a asp-page="/Tests" asp-route-runId="@Model.Run.Id" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Run
+                    </a>
+                }
+                else
+                {
+                    <a asp-page="/Index" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </a>
+                }
+            </div>
+            <button type="submit" class="btn btn-success px-4" @(!Model.WritesEnabled ? "disabled" : "")>
+                <i class="bi bi-check-lg"></i> Save Changes
+            </button>
+        </div>
+    </form>
+}

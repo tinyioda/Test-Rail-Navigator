@@ -58,8 +58,8 @@ else
         @foreach (var project in Model.Projects)
         {
             <div class="col">
-                <a asp-page="/Project" asp-route-projectId="@project.Id" class="text-decoration-none">
-                    <div class="card h-100 project-card @(project.IsCompleted ? "border-start border-4 border-secondary" : "border-start border-4 border-success")">
+                <div class="card h-100 project-card @(project.IsCompleted ? "border-start border-4 border-secondary" : "border-start border-4 border-success")">
+                    <a asp-page="/Project" asp-route-projectId="@project.Id" class="text-decoration-none">
                         <div class="card-body d-flex flex-column">
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <h5 class="card-title mb-0 text-body">@project.Name</h5>
@@ -80,8 +80,29 @@ else
                                 <span class="text-muted small">ID: @project.Id</span>
                             </div>
                         </div>
-                    </div>
-                </a>
+                    </a>
+                    @if (Model.WritesEnabled)
+                    {
+                        <div class="card-footer bg-transparent border-top-0 text-end">
+                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#editProjectModal"
+                                    data-id="@project.Id"
+                                    data-name="@project.Name"
+                                    data-announcement="@project.Announcement"
+                                    data-completed="@project.IsCompleted.ToString().ToLowerInvariant()">
+                                Edit
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#deleteProjectModal"
+                                    data-id="@project.Id"
+                                    data-name="@project.Name">
+                                Delete
+                            </button>
+                        </div>
+                    }
+                </div>
             </div>
         }
     </div>
@@ -114,3 +135,85 @@ else
         </div>
     </div>
 </div>
+
+<!-- Edit Project Modal -->
+<div class="modal fade" id="editProjectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="Edit" asp-antiforgery="true">
+                <input type="hidden" name="EditProjectId" id="editProjectId" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Project</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editProjectName" class="form-label">Project Name *</label>
+                        <input type="text" name="EditProjectName" id="editProjectName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="editProjectAnnouncement" class="form-label">Description</label>
+                        <textarea name="EditProjectAnnouncement" id="editProjectAnnouncement" class="form-control" rows="3"></textarea>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" name="EditProjectIsCompleted" value="true" id="editProjectIsCompleted" class="form-check-input" />
+                        <label for="editProjectIsCompleted" class="form-check-label">Mark as completed</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Project Modal -->
+<div class="modal fade" id="deleteProjectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="Delete" asp-antiforgery="true">
+                <input type="hidden" name="EditProjectId" id="deleteProjectId" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete Project</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete project <strong id="deleteProjectName"></strong>?</p>
+                    <p class="text-danger small">This action cannot be undone. All milestones, plans, runs, and test data will be permanently deleted.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Populate the Edit Project modal fields from data attributes on the trigger button
+        const editProjectModal = document.getElementById('editProjectModal');
+        if (editProjectModal) {
+            editProjectModal.addEventListener('show.bs.modal', function (event) {
+                const btn = event.relatedTarget;
+                editProjectModal.querySelector('#editProjectId').value = btn.getAttribute('data-id');
+                editProjectModal.querySelector('#editProjectName').value = btn.getAttribute('data-name');
+                editProjectModal.querySelector('#editProjectAnnouncement').value = btn.getAttribute('data-announcement') || '';
+                editProjectModal.querySelector('#editProjectIsCompleted').checked = btn.getAttribute('data-completed') === 'true';
+            });
+        }
+
+        // Populate the Delete Project modal fields from data attributes on the trigger button
+        const deleteProjectModal = document.getElementById('deleteProjectModal');
+        if (deleteProjectModal) {
+            deleteProjectModal.addEventListener('show.bs.modal', function (event) {
+                const btn = event.relatedTarget;
+                deleteProjectModal.querySelector('#deleteProjectId').value = btn.getAttribute('data-id');
+                deleteProjectModal.querySelector('#deleteProjectName').textContent = btn.getAttribute('data-name');
+            });
+        }
+    </script>
+}

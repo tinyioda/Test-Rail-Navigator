@@ -97,6 +97,12 @@ public class MilestonesModel : PageModel
     public int MilestoneId { get; set; }
 
     /// <summary>
+    /// Gets or sets the parent milestone identifier for creating sub-milestones.
+    /// </summary>
+    [BindProperty]
+    public int? ParentMilestoneId { get; set; }
+
+    /// <summary>
     /// Gets or sets whether the milestone is completed (for update).
     /// </summary>
     [BindProperty]
@@ -258,6 +264,7 @@ public class MilestonesModel : PageModel
         {
             Name = MilestoneName,
             Description = MilestoneDescription,
+            ParentId = ParentMilestoneId,
             StartOn = MilestoneStartDate.HasValue
                 ? new DateTimeOffset(MilestoneStartDate.Value, TimeSpan.Zero).ToUnixTimeSeconds()
                 : null,

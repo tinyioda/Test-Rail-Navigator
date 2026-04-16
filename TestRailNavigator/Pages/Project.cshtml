@@ -157,7 +157,13 @@
             }
             else
             {
-                <h3 class="mb-4">@Model.SelectedMilestone.Name</h3>
+                <h3 class="mb-4">
+                    @if (Model.ParentMilestone is not null)
+                    {
+                        <span class="text-muted fw-semibold">@Model.ParentMilestone.Name →</span>
+                    }
+                    @Model.SelectedMilestone.Name
+                </h3>
 
                 @if (Model.SelectedChildMilestones.Count > 0)
                 {
@@ -168,6 +174,12 @@
                     <!-- Milestones Section (child milestones) -->
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h4 class="mb-0">Milestones</h4>
+                        @if (Model.WritesEnabled)
+                        {
+                            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createChildMilestoneModal">
+                                + New Child Milestone
+                            </button>
+                        }
                     </div>
 
                     @if (activeMilestones.Count > 0)
@@ -180,15 +192,18 @@
                         <table class="table table-striped child-milestone-table">
                             <thead>
                                 <tr>
+                                    <th class="sortable" data-sort-type="number">ID</th>
                                     <th class="sortable">Name</th>
                                     <th class="sortable" data-sort-type="date">Start Date</th>
                                     <th class="sortable" data-sort-type="date">Due Date</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var child in activeMilestones)
                                 {
                                     <tr>
+                                        <td>@child.Id</td>
                                         <td>
                                             <a asp-page="/Project" asp-route-projectId="@Model.Project.Id" asp-route-milestoneId="@child.Id">
                                                 @child.Name
@@ -212,6 +227,29 @@
                                             else
                                             {
                                                 <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (Model.WritesEnabled)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#editChildMilestoneModal"
+                                                        data-id="@child.Id"
+                                                        data-name="@child.Name"
+                                                        data-description="@child.Description"
+                                                        data-start="@(child.StartOn.HasValue ? DateTimeOffset.FromUnixTimeSeconds(child.StartOn.Value).UtcDateTime.ToString("yyyy-MM-dd") : "")"
+                                                        data-due="@(child.DueOn.HasValue ? DateTimeOffset.FromUnixTimeSeconds(child.DueOn.Value).UtcDateTime.ToString("yyyy-MM-dd") : "")"
+                                                        data-completed="@child.IsCompleted.ToString().ToLowerInvariant()">
+                                                    Edit
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#deleteChildMilestoneModal"
+                                                        data-id="@child.Id"
+                                                        data-name="@child.Name">
+                                                    Delete
+                                                </button>
                                             }
                                         </td>
                                     </tr>
@@ -231,15 +269,18 @@
                         <table class="table table-striped child-milestone-table">
                             <thead>
                                 <tr>
+                                    <th class="sortable" data-sort-type="number">ID</th>
                                     <th class="sortable">Name</th>
                                     <th class="sortable" data-sort-type="date">Start Date</th>
                                     <th class="sortable" data-sort-type="date">Due Date</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var child in upcomingMilestones)
                                 {
                                     <tr>
+                                        <td>@child.Id</td>
                                         <td>
                                             <a asp-page="/Project" asp-route-projectId="@Model.Project.Id" asp-route-milestoneId="@child.Id">
                                                 @child.Name
@@ -263,6 +304,29 @@
                                             else
                                             {
                                                 <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (Model.WritesEnabled)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#editChildMilestoneModal"
+                                                        data-id="@child.Id"
+                                                        data-name="@child.Name"
+                                                        data-description="@child.Description"
+                                                        data-start="@(child.StartOn.HasValue ? DateTimeOffset.FromUnixTimeSeconds(child.StartOn.Value).UtcDateTime.ToString("yyyy-MM-dd") : "")"
+                                                        data-due="@(child.DueOn.HasValue ? DateTimeOffset.FromUnixTimeSeconds(child.DueOn.Value).UtcDateTime.ToString("yyyy-MM-dd") : "")"
+                                                        data-completed="@child.IsCompleted.ToString().ToLowerInvariant()">
+                                                    Edit
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#deleteChildMilestoneModal"
+                                                        data-id="@child.Id"
+                                                        data-name="@child.Name">
+                                                    Delete
+                                                </button>
                                             }
                                         </td>
                                     </tr>
@@ -282,15 +346,18 @@
                         <table class="table table-striped child-milestone-table">
                             <thead>
                                 <tr>
+                                    <th class="sortable" data-sort-type="number">ID</th>
                                     <th class="sortable">Name</th>
                                     <th class="sortable" data-sort-type="date">Start Date</th>
                                     <th class="sortable" data-sort-type="date">Due Date</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var child in completedMilestones)
                                 {
                                     <tr>
+                                        <td>@child.Id</td>
                                         <td>
                                             <a asp-page="/Project" asp-route-projectId="@Model.Project.Id" asp-route-milestoneId="@child.Id">
                                                 @child.Name
@@ -314,6 +381,29 @@
                                             else
                                             {
                                                 <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (Model.WritesEnabled)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#editChildMilestoneModal"
+                                                        data-id="@child.Id"
+                                                        data-name="@child.Name"
+                                                        data-description="@child.Description"
+                                                        data-start="@(child.StartOn.HasValue ? DateTimeOffset.FromUnixTimeSeconds(child.StartOn.Value).UtcDateTime.ToString("yyyy-MM-dd") : "")"
+                                                        data-due="@(child.DueOn.HasValue ? DateTimeOffset.FromUnixTimeSeconds(child.DueOn.Value).UtcDateTime.ToString("yyyy-MM-dd") : "")"
+                                                        data-completed="@child.IsCompleted.ToString().ToLowerInvariant()">
+                                                    Edit
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#deleteChildMilestoneModal"
+                                                        data-id="@child.Id"
+                                                        data-name="@child.Name">
+                                                    Delete
+                                                </button>
                                             }
                                         </td>
                                     </tr>
@@ -382,14 +472,24 @@
                                     <td>
                                         @if (Model.WritesEnabled)
                                         {
-                                            <button type="button" class="btn btn-sm btn-outline-primary"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#editPlanModal"
-                                                    data-id="@plan.Id"
-                                                    data-name="@plan.Name"
-                                                    data-description="@plan.Description">
-                                                Edit
-                                            </button>
+                                            @if (!plan.IsCompleted)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#editPlanModal"
+                                                        data-id="@plan.Id"
+                                                        data-name="@plan.Name"
+                                                        data-description="@plan.Description">
+                                                    Edit
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#closePlanModal"
+                                                        data-id="@plan.Id"
+                                                        data-name="@plan.Name">
+                                                    Close
+                                                </button>
+                                            }
                                             <button type="button" class="btn btn-sm btn-outline-danger"
                                                     data-bs-toggle="modal"
                                                     data-bs-target="#deletePlanModal"
@@ -411,6 +511,12 @@
                 <!-- Test Runs Section -->
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h4 class="mb-0">Test Runs</h4>
+                    @if (Model.WritesEnabled)
+                    {
+                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createRunModal">
+                            + New Test Run
+                        </button>
+                    }
                 </div>
 
                 @if (Model.MilestoneRuns.Count == 0)
@@ -456,9 +562,34 @@
                                     <td><span class="text-warning">@run.BlockedCount</span></td>
                                     <td><span class="text-muted">@run.UntestedCount</span></td>
                                     <td>
-                                        <a asp-page="/Tests" asp-route-runId="@run.Id" class="btn btn-sm btn-outline-primary">
-                                            View Tests
-                                        </a>
+                                        @if (Model.WritesEnabled)
+                                        {
+                                            @if (!run.IsCompleted)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#editRunModal"
+                                                        data-id="@run.Id"
+                                                        data-name="@run.Name"
+                                                        data-description="@run.Description">
+                                                    Edit
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#closeRunModal"
+                                                        data-id="@run.Id"
+                                                        data-name="@run.Name">
+                                                    Close
+                                                </button>
+                                            }
+                                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#deleteRunModal"
+                                                    data-id="@run.Id"
+                                                    data-name="@run.Name">
+                                                Delete
+                                            </button>
+                                        }
                                     </td>
                                 </tr>
                             }
@@ -554,6 +685,244 @@
     </div>
 </div>
 
+<!-- Create Test Run Modal -->
+<div class="modal fade" id="createRunModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="CreateRun" asp-route-projectId="@Model.Project?.Id" asp-route-milestoneId="@Model.MilestoneId" asp-antiforgery="true">
+                <input type="hidden" name="MilestoneId" value="@Model.MilestoneId" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Test Run</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="createRunName" class="form-label">Name *</label>
+                        <input type="text" name="RunName" id="createRunName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="createRunDescription" class="form-label">Description</label>
+                        <textarea name="RunDescription" id="createRunDescription" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Create Run</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Test Run Modal -->
+<div class="modal fade" id="editRunModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="EditRun" asp-route-projectId="@Model.Project?.Id" asp-route-milestoneId="@Model.MilestoneId" asp-antiforgery="true">
+                <input type="hidden" name="RunId" id="editRunId" />
+                <input type="hidden" name="MilestoneId" value="@Model.MilestoneId" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Test Run</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editRunName" class="form-label">Name *</label>
+                        <input type="text" name="RunName" id="editRunName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="editRunDescription" class="form-label">Description</label>
+                        <textarea name="RunDescription" id="editRunDescription" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Test Run Modal -->
+<div class="modal fade" id="deleteRunModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="DeleteRun" asp-route-projectId="@Model.Project?.Id" asp-route-milestoneId="@Model.MilestoneId" asp-antiforgery="true">
+                <input type="hidden" name="RunId" id="deleteRunId" />
+                <input type="hidden" name="MilestoneId" value="@Model.MilestoneId" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete Test Run</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete test run <strong id="deleteRunName"></strong>?</p>
+                    <p class="text-danger small">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Close Test Plan Modal -->
+<div class="modal fade" id="closePlanModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="ClosePlan" asp-route-projectId="@Model.Project?.Id" asp-route-milestoneId="@Model.MilestoneId" asp-antiforgery="true">
+                <input type="hidden" name="PlanId" id="closePlanId" />
+                <input type="hidden" name="MilestoneId" value="@Model.MilestoneId" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Close Test Plan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to close test plan <strong id="closePlanName"></strong>?</p>
+                    <p class="text-danger small">This action cannot be undone. The plan and all its runs will be marked as completed.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">Close Plan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Close Test Run Modal -->
+<div class="modal fade" id="closeRunModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="CloseRun" asp-route-projectId="@Model.Project?.Id" asp-route-milestoneId="@Model.MilestoneId" asp-antiforgery="true">
+                <input type="hidden" name="RunId" id="closeRunId" />
+                <input type="hidden" name="MilestoneId" value="@Model.MilestoneId" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Close Test Run</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to close test run <strong id="closeRunName"></strong>?</p>
+                    <p class="text-danger small">This action cannot be undone. The run will be marked as completed and no further changes can be made.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">Close Run</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Create Child Milestone Modal -->
+<div class="modal fade" id="createChildMilestoneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="CreateChildMilestone" asp-route-projectId="@Model.Project?.Id" asp-route-milestoneId="@Model.MilestoneId" asp-antiforgery="true">
+                <input type="hidden" name="MilestoneId" value="@Model.MilestoneId" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Create Child Milestone</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="createChildMilestoneName" class="form-label">Name *</label>
+                        <input type="text" name="ChildMilestoneName" id="createChildMilestoneName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="createChildMilestoneDescription" class="form-label">Description</label>
+                        <textarea name="ChildMilestoneDescription" id="createChildMilestoneDescription" class="form-control" rows="3"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="createChildMilestoneStart" class="form-label">Start Date</label>
+                            <input type="date" name="ChildMilestoneStartDate" id="createChildMilestoneStart" class="form-control" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="createChildMilestoneDue" class="form-label">Due Date</label>
+                            <input type="date" name="ChildMilestoneDueDate" id="createChildMilestoneDue" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Child Milestone Modal -->
+<div class="modal fade" id="editChildMilestoneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="EditChildMilestone" asp-route-projectId="@Model.Project?.Id" asp-route-milestoneId="@Model.MilestoneId" asp-antiforgery="true">
+                <input type="hidden" name="ChildMilestoneId" id="editChildMilestoneId" />
+                <input type="hidden" name="MilestoneId" value="@Model.MilestoneId" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Child Milestone</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editChildMilestoneName" class="form-label">Name *</label>
+                        <input type="text" name="ChildMilestoneName" id="editChildMilestoneName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="editChildMilestoneDescription" class="form-label">Description</label>
+                        <textarea name="ChildMilestoneDescription" id="editChildMilestoneDescription" class="form-control" rows="3"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editChildMilestoneStart" class="form-label">Start Date</label>
+                            <input type="date" name="ChildMilestoneStartDate" id="editChildMilestoneStart" class="form-control" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editChildMilestoneDue" class="form-label">Due Date</label>
+                            <input type="date" name="ChildMilestoneDueDate" id="editChildMilestoneDue" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" name="ChildMilestoneIsCompleted" value="true" id="editChildMilestoneIsCompleted" class="form-check-input" />
+                        <label for="editChildMilestoneIsCompleted" class="form-check-label">Mark as completed</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Child Milestone Modal -->
+<div class="modal fade" id="deleteChildMilestoneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="DeleteChildMilestone" asp-route-projectId="@Model.Project?.Id" asp-route-milestoneId="@Model.MilestoneId" asp-antiforgery="true">
+                <input type="hidden" name="ChildMilestoneId" id="deleteChildMilestoneId" />
+                <input type="hidden" name="MilestoneId" value="@Model.MilestoneId" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete Child Milestone</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete milestone <strong id="deleteChildMilestoneName"></strong>?</p>
+                    <p class="text-danger small">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script>
         // Milestone sidebar filter
@@ -620,6 +989,71 @@
                 const btn = event.relatedTarget;
                 deletePlanModal.querySelector('#deletePlanId').value = btn.getAttribute('data-id');
                 deletePlanModal.querySelector('#deletePlanName').textContent = btn.getAttribute('data-name');
+            });
+        }
+
+        // Populate the Edit Run modal fields from data attributes on the trigger button
+        const editRunModal = document.getElementById('editRunModal');
+        if (editRunModal) {
+            editRunModal.addEventListener('show.bs.modal', function (event) {
+                const btn = event.relatedTarget;
+                editRunModal.querySelector('#editRunId').value = btn.getAttribute('data-id');
+                editRunModal.querySelector('#editRunName').value = btn.getAttribute('data-name');
+                editRunModal.querySelector('#editRunDescription').value = btn.getAttribute('data-description') || '';
+            });
+        }
+
+        // Populate the Delete Run modal fields from data attributes on the trigger button
+        const deleteRunModal = document.getElementById('deleteRunModal');
+        if (deleteRunModal) {
+            deleteRunModal.addEventListener('show.bs.modal', function (event) {
+                const btn = event.relatedTarget;
+                deleteRunModal.querySelector('#deleteRunId').value = btn.getAttribute('data-id');
+                deleteRunModal.querySelector('#deleteRunName').textContent = btn.getAttribute('data-name');
+            });
+        }
+
+        // Populate the Close Plan modal fields from data attributes on the trigger button
+        const closePlanModal = document.getElementById('closePlanModal');
+        if (closePlanModal) {
+            closePlanModal.addEventListener('show.bs.modal', function (event) {
+                const btn = event.relatedTarget;
+                closePlanModal.querySelector('#closePlanId').value = btn.getAttribute('data-id');
+                closePlanModal.querySelector('#closePlanName').textContent = btn.getAttribute('data-name');
+            });
+        }
+
+        // Populate the Close Run modal fields from data attributes on the trigger button
+        const closeRunModal = document.getElementById('closeRunModal');
+        if (closeRunModal) {
+            closeRunModal.addEventListener('show.bs.modal', function (event) {
+                const btn = event.relatedTarget;
+                closeRunModal.querySelector('#closeRunId').value = btn.getAttribute('data-id');
+                closeRunModal.querySelector('#closeRunName').textContent = btn.getAttribute('data-name');
+            });
+        }
+
+        // Populate the Edit Child Milestone modal fields from data attributes on the trigger button
+        const editChildMilestoneModal = document.getElementById('editChildMilestoneModal');
+        if (editChildMilestoneModal) {
+            editChildMilestoneModal.addEventListener('show.bs.modal', function (event) {
+                const btn = event.relatedTarget;
+                editChildMilestoneModal.querySelector('#editChildMilestoneId').value = btn.getAttribute('data-id');
+                editChildMilestoneModal.querySelector('#editChildMilestoneName').value = btn.getAttribute('data-name');
+                editChildMilestoneModal.querySelector('#editChildMilestoneDescription').value = btn.getAttribute('data-description') || '';
+                editChildMilestoneModal.querySelector('#editChildMilestoneStart').value = btn.getAttribute('data-start') || '';
+                editChildMilestoneModal.querySelector('#editChildMilestoneDue').value = btn.getAttribute('data-due') || '';
+                editChildMilestoneModal.querySelector('#editChildMilestoneIsCompleted').checked = btn.getAttribute('data-completed') === 'true';
+            });
+        }
+
+        // Populate the Delete Child Milestone modal fields from data attributes on the trigger button
+        const deleteChildMilestoneModal = document.getElementById('deleteChildMilestoneModal');
+        if (deleteChildMilestoneModal) {
+            deleteChildMilestoneModal.addEventListener('show.bs.modal', function (event) {
+                const btn = event.relatedTarget;
+                deleteChildMilestoneModal.querySelector('#deleteChildMilestoneId').value = btn.getAttribute('data-id');
+                deleteChildMilestoneModal.querySelector('#deleteChildMilestoneName').textContent = btn.getAttribute('data-name');
             });
         }
     </script>

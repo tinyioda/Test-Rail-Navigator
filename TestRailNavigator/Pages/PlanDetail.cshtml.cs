@@ -136,6 +136,18 @@ public class PlanDetailModel : PageModel
     public string? DeleteEntryId { get; set; }
 
     /// <summary>
+    /// Gets or sets the case identifier for removal from a run.
+    /// </summary>
+    [BindProperty]
+    public int DeleteCaseId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the run identifier for the remove-test operation.
+    /// </summary>
+    [BindProperty]
+    public int DeleteRunId { get; set; }
+
+    /// <summary>
     /// Handles GET requests to load a test plan with its entries and runs.
     /// </summary>
     /// <param name="planId">The test plan identifier.</param>
@@ -353,6 +365,104 @@ public class PlanDetailModel : PageModel
     }
 
     /// <summary>
+    /// Handles POST requests to close (complete) the test plan. This action cannot be undone.
+    /// </summary>
+    /// <param name="planId">The test plan identifier.</param>
+    /// <returns>The page result.</returns>
+    public async Task<IActionResult> OnPostClosePlanAsync(int planId)
+    {
+        if (!await _settingsService.IsConfiguredAsync())
+        {
+            return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await ReloadPageDataAsync(planId);
+            return Page();
+        }
+
+        _consoleLog.Log($"Closing test plan {planId}");
+
+        try
+        {
+            var closed = await _testRail.ClosePlanAsync(planId);
+            SuccessMessage = $"Test plan '{closed?.Name}' closed successfully.";
+            _consoleLog.Log(SuccessMessage);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to close test plan: {ex.Message}";
+            _consoleLog.Log(ErrorMessage);
+        }
+
+        await ReloadPageDataAsync(planId);
+        return Page();
+    }
+
+    /// <summary>
+    /// Handles POST requests to remove a test case from a run within the plan (does not delete the case from the library).
+    /// </summary>
+    /// <param name="planId">The test plan identifier.</param>
+    /// <returns>The page result.</returns>
+    public async Task<IActionResult> OnPostRemoveTestAsync(int planId)
+    {
+        if (!await _settingsService.IsConfiguredAsync())
+        {
+            return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await ReloadPageDataAsync(planId);
+            return Page();
+        }
+
+        if (DeleteCaseId <= 0 || DeleteRunId <= 0)
+        {
+            ErrorMessage = "Case and run identifiers are required.";
+            _consoleLog.Log(ErrorMessage);
+            await ReloadPageDataAsync(planId);
+            return Page();
+        }
+
+        _consoleLog.Log($"Removing case C{DeleteCaseId} from run {DeleteRunId} in plan {planId}");
+
+        try
+        {
+            var currentTests = await _testRail.GetTestsAsync(DeleteRunId);
+            var remainingCaseIds = currentTests
+                .Where(t => t.CaseId != DeleteCaseId)
+                .Select(t => t.CaseId)
+                .Distinct()
+                .ToList();
+
+            var plan = await _testRail.GetPlanAsync(planId);
+            var entry = plan?.Entries?.FirstOrDefault(e => e.Runs.Any(r => r.Id == DeleteRunId));
+            if (entry is not null)
+            {
+                var updateRequest = new UpdateRunRequest { IncludeAll = false, CaseIds = remainingCaseIds };
+                await _testRail.UpdatePlanEntryAsync(planId, entry.Id, updateRequest);
+            }
+
+            SuccessMessage = $"Test case C{DeleteCaseId} removed from run.";
+            _consoleLog.Log(SuccessMessage);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to remove test: {ex.Message}";
+            _consoleLog.Log(ErrorMessage);
+        }
+
+        await ReloadPageDataAsync(planId);
+        return Page();
+    }
+
+    /// <summary>
     /// Reloads all page data after a mutation.
     /// </summary>
     private async Task ReloadPageDataAsync(int planId)
@@ -414,5 +524,159 @@ public class PlanDetailModel : PageModel
 
         Permissions = await _permissionService.GetPermissionsAsync();
         WritesEnabled = await _settingsService.AreWritesEnabledAsync();
+    }
+
+    /// <summary>
+    /// Handles AJAX GET requests to fetch the latest results for a specific test.
+    /// </summary>
+    /// <param name="planId">The plan identifier (route parameter).</param>
+    /// <param name="testId">The test identifier.</param>
+    /// <returns>A JSON array of test results.</returns>
+    public async Task<IActionResult> OnGetResultsAsync(int planId, int testId)
+    {
+        if (!await _settingsService.IsConfiguredAsync())
+        {
+            return new JsonResult(Array.Empty<object>());
+        }
+
+        try
+        {
+            var results = await _testRail.GetResultsAsync(testId);
+            var data = results.Take(10).Select(r => new
+            {
+                r.Id,
+                r.StatusId,
+                r.StatusName,
+                r.Comment,
+                CreatedOn = DateTimeOffset.FromUnixTimeSeconds(r.CreatedOn).UtcDateTime.ToString("yyyy-MM-dd HH:mm UTC")
+            });
+            return new JsonResult(data);
+        }
+        catch (Exception ex)
+        {
+            _consoleLog.Log($"Failed to load results for test {testId}: {ex.Message}");
+            return new JsonResult(Array.Empty<object>());
+        }
+    }
+
+    /// <summary>
+    /// Handles POST requests to quickly add a result for a test (Quick Edit).
+    /// </summary>
+    /// <param name="planId">The test plan identifier (route parameter).</param>
+    /// <returns>A redirect back to the PlanDetail page.</returns>
+    public async Task<IActionResult> OnPostQuickEditAsync(int planId)
+    {
+        if (!await _settingsService.IsConfiguredAsync())
+        {
+            return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await ReloadPageDataAsync(planId);
+            return Page();
+        }
+
+        var runId = int.TryParse(Request.Form["QuickEditRunId"], out var rid) ? rid : 0;
+        var caseId = int.TryParse(Request.Form["QuickEditCaseId"], out var cid) ? cid : 0;
+        var statusId = int.TryParse(Request.Form["QuickEditStatusId"], out var sid) ? sid : 0;
+        var comment = Request.Form["QuickEditComment"].ToString();
+
+        if (runId <= 0 || caseId <= 0 || statusId <= 0)
+        {
+            ErrorMessage = "A test run, case, and status are required.";
+            _consoleLog.Log(ErrorMessage);
+            await ReloadPageDataAsync(planId);
+            return Page();
+        }
+
+        try
+        {
+            var request = new AddResultRequest
+            {
+                StatusId = statusId,
+                Comment = string.IsNullOrWhiteSpace(comment) ? null : comment
+            };
+            await _testRail.AddResultForCaseAsync(runId, caseId, request);
+
+            var statusName = statusId switch
+            {
+                1 => "Passed",
+                2 => "Blocked",
+                4 => "Retest",
+                5 => "Failed",
+                _ => "Updated"
+            };
+            SuccessMessage = $"Test C{caseId} marked as {statusName}.";
+            _consoleLog.Log(SuccessMessage);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to update test result: {ex.Message}";
+            _consoleLog.Log(ErrorMessage);
+        }
+
+        await ReloadPageDataAsync(planId);
+        return Page();
+    }
+
+    /// <summary>
+    /// Handles POST requests to quickly edit a test case's core properties from the grid.
+    /// </summary>
+    /// <param name="planId">The test plan identifier (route parameter).</param>
+    /// <returns>The page result.</returns>
+    public async Task<IActionResult> OnPostQuickCaseEditAsync(int planId)
+    {
+        if (!await _settingsService.IsConfiguredAsync())
+        {
+            return RedirectToPage("/Setup");
+        }
+
+        if (!await _settingsService.AreWritesEnabledAsync())
+        {
+            ErrorMessage = "Write operations are disabled. Enable AllowWrites in settings.";
+            _consoleLog.Log(ErrorMessage);
+            await ReloadPageDataAsync(planId);
+            return Page();
+        }
+
+        var caseId = int.TryParse(Request.Form["EditCaseId"], out var cid) ? cid : 0;
+        var title = Request.Form["EditCaseTitle"].ToString();
+        var typeId = int.TryParse(Request.Form["EditCaseTypeId"], out var tid) ? tid : (int?)null;
+        var priorityId = int.TryParse(Request.Form["EditCasePriorityId"], out var pid) ? pid : (int?)null;
+        var estimate = Request.Form["EditCaseEstimate"].ToString();
+
+        if (caseId <= 0 || string.IsNullOrWhiteSpace(title))
+        {
+            ErrorMessage = "Case ID and title are required.";
+            _consoleLog.Log(ErrorMessage);
+            await ReloadPageDataAsync(planId);
+            return Page();
+        }
+
+        try
+        {
+            var request = new UpdateTestCaseRequest
+            {
+                Title = title,
+                TypeId = typeId,
+                PriorityId = priorityId,
+                Estimate = string.IsNullOrWhiteSpace(estimate) ? null : estimate
+            };
+            var updated = await _testRail.UpdateCaseAsync(caseId, request);
+
+            SuccessMessage = $"Test case C{caseId} '{updated?.Title}' updated.";
+            _consoleLog.Log(SuccessMessage);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to update test case: {ex.Message}";
+            _consoleLog.Log(ErrorMessage);
+        }
+
+        await ReloadPageDataAsync(planId);
+        return Page();
     }
 }

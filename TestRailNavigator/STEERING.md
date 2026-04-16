@@ -4,6 +4,8 @@
 
 The default interface of TestRail is terrible and we're going to design a new one.
 
+I don't get lucky, I make my own luck.
+
 TestRailNavigator is a .NET 10 Razor Pages web application that provides a modern, streamlined interface for browsing TestRail test management data. It connects to the TestRail API to display projects, test runs, and test results with a cleaner, more intuitive user experience.
 
 ## Entity Hierarchy
