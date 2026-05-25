@@ -78,8 +78,80 @@
 
                         <hr />
 
+                        <div class="mb-3">
+                            <label asp-for="Settings.AzureDevOpsPat" class="form-label">Azure DevOps PAT</label>
+                            <input asp-for="Settings.AzureDevOpsPat" type="password" class="form-control" autocomplete="new-password" />
+                            <div class="form-text">
+                                Optional. Personal access token with <em>Work Items (Read)</em> scope,
+                                used by the <a asp-page="/GenerateCases">Generate Cases</a> page.
+                                Leave blank to keep the existing value.
+                            </div>
+                        </div>
+
+                        <hr />
+                        <p class="text-muted small mb-2">
+                            Jira integration (coming soon). You can save the credentials now and the
+                            <a asp-page="/GenerateHierarchy">Generate Hierarchy</a> page will pick them up
+                            automatically once the Jira tracker ships.
+                        </p>
+                        <div class="mb-3">
+                            <label asp-for="Settings.JiraBaseUrl" class="form-label">Jira base URL</label>
+                            <input asp-for="Settings.JiraBaseUrl" type="url" class="form-control" placeholder="https://your-tenant.atlassian.net" />
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="Settings.JiraEmail" class="form-label">Jira email</label>
+                                <input asp-for="Settings.JiraEmail" type="email" class="form-control" placeholder="you@example.com" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="Settings.JiraApiToken" class="form-label">Jira API token</label>
+                                <input asp-for="Settings.JiraApiToken" type="password" class="form-control" autocomplete="new-password" />
+                                <div class="form-text">Leave blank to keep the existing value.</div>
+                            </div>
+                        </div>
+
+                        <hr />
+
+                        <h6 class="mb-3">AI case enrichment <small class="text-muted">(optional)</small></h6>
+                        <div class="form-text mb-3">
+                            Configure an OpenAI-compatible chat-completions endpoint to enable
+                            <em>Enrich with AI</em> on the Generate Cases page. Works with OpenAI, Azure OpenAI,
+                            and self-hosted endpoints (e.g. Ollama, LM Studio, vLLM).
+                        </div>
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label asp-for="Settings.OpenAiEndpoint" class="form-label">Endpoint URL</label>
+                                <input asp-for="Settings.OpenAiEndpoint" class="form-control"
+                                       placeholder="https://api.openai.com/v1 or https://&lt;resource&gt;.openai.azure.com/openai/deployments/&lt;deployment&gt;" />
+                                <div class="form-text">
+                                    OpenAI: <code>https://api.openai.com/v1</code>.
+                                    Azure OpenAI: include the deployment path, e.g.
+                                    <code>https://my-resource.openai.azure.com/openai/deployments/gpt-4o-mini</code>.
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label asp-for="Settings.OpenAiModel" class="form-label">Model</label>
+                                <input asp-for="Settings.OpenAiModel" class="form-control" placeholder="gpt-4o-mini" />
+                                <div class="form-text">For Azure, this is ignored (deployment name is in the URL).</div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label asp-for="Settings.OpenAiApiKey" class="form-label">API key</label>
+                                <input asp-for="Settings.OpenAiApiKey" type="password" class="form-control"
+                                       autocomplete="new-password" />
+                                <div class="form-text">Leave blank to keep the existing value.</div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label asp-for="Settings.OpenAiApiVersion" class="form-label">Azure API version</label>
+                                <input asp-for="Settings.OpenAiApiVersion" class="form-control" placeholder="2024-10-21" />
+                                <div class="form-text">Azure OpenAI only. Ignored for OpenAI / Ollama.</div>
+                            </div>
+                        </div>
+
+                        <hr />
+
                         <div class="form-check form-switch mb-3">
-                            <input asp-for="Settings.AllowWrites" class="form-check-input" type="checkbox" role="switch" />
                             <label asp-for="Settings.AllowWrites" class="form-check-label">Enable write operations</label>
                             <div class="form-text">
                                 When off, the application runs in read-only mode. Create, edit, and delete actions are hidden and blocked.

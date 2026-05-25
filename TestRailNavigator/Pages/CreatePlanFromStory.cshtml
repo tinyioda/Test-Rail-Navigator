@@ -1,0 +1,371 @@
+@page
+@model TestRailNavigator.Pages.CreatePlanFromStoryModel
+@{
+    ViewData["Title"] = "New Plan from Story";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="mb-0">New Plan from Story</h1>
+    <div class="d-flex align-items-center gap-2">
+        @if (Model.WritesEnabled)
+        {
+            <span class="badge text-bg-success">Writes enabled</span>
+        }
+        else
+        {
+            <span class="badge text-bg-warning">Read-only — Confirm is disabled</span>
+        }
+    </div>
+</div>
+
+<p class="text-muted">
+    Enter a single Azure DevOps User Story (or Bug / PBI) URL. The wizard parses its acceptance criteria
+    into test cases, lets you tweak everything, and — only after you confirm — creates a new TestRail
+    plan with a single run containing those cases.
+</p>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+
+@if (!Model.AzureDevOpsConfigured)
+{
+    <div class="alert alert-warning">
+        An Azure DevOps PAT is not configured. <a asp-page="/Setup">Open Setup</a> to add one.
+    </div>
+}
+
+<form method="post" asp-page-handler="Load" class="card p-3 mb-4">
+    <div class="row g-3">
+        <div class="col-md-12">
+            <label class="form-label">Azure DevOps Work Item URL</label>
+            <input asp-for="Wizard.StoryUrl" class="form-control" placeholder="https://dev.azure.com/.../_workitems/edit/1234" />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Project</label>
+            <select asp-for="Wizard.ProjectId" class="form-select" onchange="this.form.submit()">
+                <option value="0">-- Select project --</option>
+                @foreach (var p in Model.Projects)
+                {
+                    <option value="@p.Id" selected="@(Model.Wizard.ProjectId == p.Id)">@p.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Suite</label>
+            <select asp-for="Wizard.SuiteId" class="form-select" onchange="this.form.submit()" disabled="@(Model.Suites.Count == 0)">
+                <option value="0">-- Select suite --</option>
+                @foreach (var s in Model.Suites)
+                {
+                    <option value="@s.Id" selected="@(Model.Wizard.SuiteId == s.Id)">@s.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100" disabled="@(!Model.AzureDevOpsConfigured)">
+                <i class="bi bi-download"></i> Load Story
+            </button>
+        </div>
+    </div>
+</form>
+
+@if (Model.PreviewReady)
+{
+    <form method="post" asp-page-handler="Confirm" id="confirmForm">
+        <!-- Round-trip all hidden context so Confirm sees every tweak. -->
+        <input type="hidden" asp-for="Wizard.StoryUrl" />
+        <input type="hidden" asp-for="Wizard.StoryId" />
+        <input type="hidden" asp-for="Wizard.StoryTitle" />
+        <input type="hidden" asp-for="Wizard.StoryType" />
+        <input type="hidden" asp-for="Wizard.ProjectId" />
+        <input type="hidden" asp-for="Wizard.SuiteId" />
+        <input type="hidden" asp-for="Wizard.DetectedAcFormat" />
+        <input type="hidden" asp-for="Wizard.DetectedAcItemCount" />
+
+        <div class="card p-3 mb-3">
+            <h5 class="mb-3">1. Story</h5>
+            <div class="row g-2">
+                <div class="col-md-2"><strong>Id</strong></div>
+                <div class="col-md-10">@(Model.Wizard.StoryId?.ToString() ?? "—")</div>
+                <div class="col-md-2"><strong>Type</strong></div>
+                <div class="col-md-10">@Model.Wizard.StoryType</div>
+                <div class="col-md-2"><strong>Title</strong></div>
+                <div class="col-md-10">@Model.Wizard.StoryTitle</div>
+                <div class="col-md-2"><strong>AC format</strong></div>
+                <div class="col-md-10">
+                    <span class="badge text-bg-secondary">@Model.Wizard.DetectedAcFormat</span>
+                    — @(Model.Wizard.DetectedAcItemCount ?? 0) item(s) detected
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-3 mb-3">
+            <h5 class="mb-3">2. Destination folder</h5>
+            <p class="text-muted small mb-2">
+                Pick an existing section from the tree, type a slash path, or opt in to create a new child
+                section. Top-level folders are never invented automatically.
+            </p>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Existing section (type to filter)</label>
+                    @await Html.PartialAsync("_SectionCombobox",
+                        ("Wizard.SectionId", "wizard-section", Model.Sections, Model.Wizard.SectionId, false, "Type any part of the breadcrumb"))
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">…or typed path (<code>a/b/c</code>)</label>
+                    <input asp-for="Wizard.SectionPathInput" class="form-control" placeholder="Voyager/Regression/Plan Details" />
+                </div>
+                <div class="col-md-12">
+                    <div class="form-check">
+                        <input asp-for="Wizard.CreateNewSection" class="form-check-input" />
+                        <label asp-for="Wizard.CreateNewSection" class="form-check-label">
+                            Create a new child section under an existing parent (not a new top-level folder)
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">New section parent (type to filter)</label>
+                    @await Html.PartialAsync("_SectionCombobox",
+                        ("Wizard.NewSectionParentId", "wizard-new-section-parent", Model.Sections, Model.Wizard.NewSectionParentId, false, "Pick an existing parent"))
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">New section name</label>
+                    <input asp-for="Wizard.NewSectionName" class="form-control" placeholder="[AB#1234] Story title" />
+                </div>
+                @if (!string.IsNullOrEmpty(Model.ResolvedDestinationBreadcrumb))
+                {
+                    <div class="col-md-12">
+                        <div class="alert alert-info mb-0 py-2">
+                            <strong>Resolved destination:</strong> @Model.ResolvedDestinationBreadcrumb
+                        </div>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(Model.DestinationMessage))
+                {
+                    <div class="col-md-12">
+                        <div class="alert alert-warning mb-0 py-2">@Model.DestinationMessage</div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card p-3 mb-3">
+            <h5 class="mb-3">3. Plan &amp; Run</h5>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Plan name</label>
+                    <input asp-for="Wizard.PlanName" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Run name</label>
+                    <input asp-for="Wizard.RunName" class="form-control" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Run assigned to (user id)</label>
+                    <input asp-for="Wizard.RunAssignedToId" class="form-control" type="number" min="0" placeholder="optional" />
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label">Plan description (optional)</label>
+                    <textarea asp-for="Wizard.PlanDescription" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label">Run description (optional)</label>
+                    <textarea asp-for="Wizard.RunDescription" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-3 mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="mb-0">4. Cases (quick edit)</h5>
+                <span class="text-muted small">Uncheck a row to skip it. Edit in place; values round-trip on submit.</span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width:48px;">Incl.</th>
+                            <th style="width:22%;">Title</th>
+                            <th style="width:20%;">Preconditions</th>
+                            <th style="width:28%;">Steps</th>
+                            <th style="width:22%;">Expected</th>
+                            <th style="width:52px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (var i = 0; i < Model.Wizard.Cases.Count; i++)
+                        {
+                            <tr data-case-index="@i" class="@(Model.Wizard.Cases[i].DuplicateOfCaseId.HasValue ? "table-warning" : "")">
+                                <td class="text-center">
+                                    <input type="checkbox" class="form-check-input" name="Wizard.Cases[@i].Include" value="true" checked="@Model.Wizard.Cases[i].Include" />
+                                    <input type="hidden" name="Wizard.Cases[@i].Include" value="false" />
+                                    <input type="hidden" name="Wizard.Cases[@i].OriginalTitle" value="@Model.Wizard.Cases[i].OriginalTitle" />
+                                    <input type="hidden" name="Wizard.Cases[@i].OriginalSteps" value="@Model.Wizard.Cases[i].OriginalSteps" />
+                                    <input type="hidden" name="Wizard.Cases[@i].OriginalExpected" value="@Model.Wizard.Cases[i].OriginalExpected" />
+                                    <input type="hidden" name="Wizard.Cases[@i].OriginalPreconditions" value="@Model.Wizard.Cases[i].OriginalPreconditions" />
+                                </td>
+                                <td>
+                                    @if (Model.Wizard.Cases[i].DuplicateOfCaseId is int dupeId)
+                                    {
+                                        <div class="small mb-1">
+                                            <span class="badge bg-warning text-dark" title="A case with this title already exists in the destination section.">
+                                                ⚠ Duplicate of C@(dupeId)
+                                            </span>
+                                        </div>
+                                    }
+                                    <textarea name="Wizard.Cases[@i].Title" class="form-control form-control-sm js-case-title" rows="2">@Model.Wizard.Cases[i].Title</textarea>
+                                </td>
+                                <td>
+                                    <textarea name="Wizard.Cases[@i].Preconditions" class="form-control form-control-sm js-case-preconds" rows="2">@Model.Wizard.Cases[i].Preconditions</textarea>
+                                </td>
+                                <td>
+                                    <textarea name="Wizard.Cases[@i].Steps" class="form-control form-control-sm js-case-steps" rows="3">@Model.Wizard.Cases[i].Steps</textarea>
+                                </td>
+                                <td>
+                                    <textarea name="Wizard.Cases[@i].Expected" class="form-control form-control-sm js-case-expected" rows="2">@Model.Wizard.Cases[i].Expected</textarea>
+                                </td>
+                                <td class="text-center">
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-secondary"
+                                            data-bs-toggle="collapse"
+                                            data-bs-target="#case-advanced-@i"
+                                            aria-expanded="false"
+                                            title="Full edit">
+                                        <i class="bi bi-chevron-down"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr class="collapse" id="case-advanced-@i">
+                                <td colspan="6" class="bg-body-tertiary">
+                                    @await Html.PartialAsync("_CaseDraftFullEdit", (i, Model.Wizard.Cases[i]))
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center gap-2 mb-5 flex-wrap">
+            <div>
+                @if (Model.Wizard.Cases.Any(c => c.Include && c.DuplicateOfCaseId.HasValue))
+                {
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="Wizard.OverrideDuplicates" id="override-duplicates" value="true" checked="@Model.Wizard.OverrideDuplicates" />
+                        <input type="hidden" name="Wizard.OverrideDuplicates" value="false" />
+                        <label class="form-check-label text-danger fw-semibold" for="override-duplicates">
+                            Create anyway, even though duplicate titles were detected
+                        </label>
+                    </div>
+                }
+            </div>
+            <div class="d-flex gap-2">
+                @if (Model.WritesEnabled)
+                {
+                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#confirmCreateModal">
+                        <i class="bi bi-check2-square"></i> Confirm &amp; Create
+                    </button>
+                }
+                else
+                {
+                    <span class="text-muted align-self-center">
+                        Write operations are disabled. Enable <code>AllowWrites</code> in Setup to create the plan.
+                    </span>
+                }
+            </div>
+        </div>
+
+        <!-- Are-you-sure modal (Bootstrap 5, no extra JS deps). Only its Yes button submits. -->
+        <div class="modal fade" id="confirmCreateModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Are you sure?</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-2">This will create the following in TestRail:</p>
+                        <ul class="mb-2">
+                            @if (Model.Wizard.CreateNewSection && !string.IsNullOrWhiteSpace(Model.Wizard.NewSectionName))
+                            {
+                                <li>1 new section: <code>@Model.Wizard.NewSectionName</code></li>
+                            }
+                            <li>@Model.Wizard.Cases.Count(c => c.Include) test case(s)</li>
+                            <li>1 plan: <code>@Model.Wizard.PlanName</code></li>
+                            <li>1 run: <code>@Model.Wizard.RunName</code></li>
+                        </ul>
+                        <p class="mb-0"><strong>Destination:</strong> @(Model.ResolvedDestinationBreadcrumb ?? "—")</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check2-circle"></i> Yes, create it
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+}
+
+@functions {
+    // Walks the flat section list to build a breadcrumb for a single section, used to render
+    // the destination <select> in a human-readable "root › a › b" form without needing JS.
+    private static string SectionBreadcrumb(TestRailNavigator.Models.Section s, System.Collections.Generic.List<TestRailNavigator.Models.Section> all)
+    {
+        var byId = all.ToDictionary(x => x.Id);
+        var parts = new System.Collections.Generic.List<string> { s.Name };
+        var cursor = s;
+        while (cursor.ParentId is int pid && byId.TryGetValue(pid, out var parent))
+        {
+            parts.Insert(0, parent.Name);
+            cursor = parent;
+        }
+        return string.Join(" › ", parts);
+    }
+}
+
+@section Scripts {
+    <script>
+        // Revert-to-parsed: restores Title/Preconditions/Steps/Expected for a single row from
+        // the hidden Original* inputs populated on Load.
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-revert-index]');
+            if (!btn) return;
+            var idx = btn.getAttribute('data-revert-index');
+            var row = document.querySelector('tr[data-case-index="' + idx + '"]');
+            if (!row) return;
+
+            function setFrom(selector, hiddenName) {
+                var field = row.querySelector(selector);
+                var hidden = row.querySelector('input[name="Wizard.Cases[' + idx + '].' + hiddenName + '"]');
+                if (field && hidden) field.value = hidden.value || '';
+            }
+
+            setFrom('.js-case-title', 'OriginalTitle');
+            setFrom('.js-case-preconds', 'OriginalPreconditions');
+            setFrom('.js-case-steps', 'OriginalSteps');
+            setFrom('.js-case-expected', 'OriginalExpected');
+        });
+
+        // Warn before leaving with unsaved edits on the review step.
+        (function () {
+            var form = document.getElementById('confirmForm');
+            if (!form) return;
+            var dirty = false;
+            form.addEventListener('input', function () { dirty = true; });
+            form.addEventListener('submit', function () { dirty = false; });
+            window.addEventListener('beforeunload', function (e) {
+                if (!dirty) return;
+                e.preventDefault();
+                e.returnValue = '';
+            });
+        })();
+    </script>
+}

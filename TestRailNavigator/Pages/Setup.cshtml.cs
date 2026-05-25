@@ -151,6 +151,25 @@ public class SetupModel : PageModel
             Settings.SetupUsername = existing.SetupUsername;
             Settings.SetupPassword = existing.SetupPassword;
             Settings.DatabasePassword = existing.DatabasePassword;
+
+            // Preserve the existing Azure DevOps PAT when the user submits an empty value,
+            // so that re-saving the form without re-typing the token does not clear it.
+            if (string.IsNullOrWhiteSpace(Settings.AzureDevOpsPat))
+            {
+                Settings.AzureDevOpsPat = existing.AzureDevOpsPat;
+            }
+
+            // Same preserve-on-blank behavior for the Jira API token.
+            if (string.IsNullOrWhiteSpace(Settings.JiraApiToken))
+            {
+                Settings.JiraApiToken = existing.JiraApiToken;
+            }
+
+            // Same preserve-on-blank behavior for the OpenAI-compatible API key.
+            if (string.IsNullOrWhiteSpace(Settings.OpenAiApiKey))
+            {
+                Settings.OpenAiApiKey = existing.OpenAiApiKey;
+            }
         }
 
         try

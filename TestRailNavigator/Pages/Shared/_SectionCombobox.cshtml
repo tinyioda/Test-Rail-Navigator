@@ -1,0 +1,117 @@
+@*
+    _SectionCombobox — Type-to-filter section picker.
+
+    Renders a visible text input backed by a <datalist> of breadcrumb labels, plus a hidden
+    input that carries the selected section id. A tiny script resolves the typed/picked
+    breadcrumb to the correct id on every input event; submitting with an unmatched value
+    clears the hidden id so the server-side required check catches it.
+
+    Model tuple:
+      HiddenName  — name of the hidden input (e.g. "SectionId")
+      DisplayId   — unique DOM id for this picker on the page
+      Sections    — flat section list
+      SelectedId  — currently selected section id (or null)
+      Required    — mark the visible input as required
+      Placeholder — visible placeholder text
+*@
+@model (string HiddenName, string DisplayId, System.Collections.Generic.List<TestRailNavigator.Models.Section> Sections, int? SelectedId, bool Required, string Placeholder)
+
+@{
+    var byId = Model.Sections.ToDictionary(s => s.Id);
+
+    string Breadcrumb(TestRailNavigator.Models.Section s)
+    {
+        var parts = new System.Collections.Generic.List<string> { s.Name };
+        var cursor = s;
+        while (cursor.ParentId is int pid && byId.TryGetValue(pid, out var parent))
+        {
+            parts.Insert(0, parent.Name);
+            cursor = parent;
+        }
+        return string.Join(" › ", parts);
+    }
+
+    var options = Model.Sections
+        .Select(s => new { s.Id, Label = $"{Breadcrumb(s)} (#{s.Id})" })
+        .OrderBy(o => o.Label, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    // Flat tree data for the Browse modal (id, name, parent_id). Rendered as a JSON blob
+    // the JS reads lazily — keeps the DOM light while avoiding a second API round-trip.
+    var treeData = Model.Sections
+        .Select(s => new { id = s.Id, name = s.Name, parent_id = s.ParentId })
+        .ToList();
+    var treeJson = System.Text.Json.JsonSerializer.Serialize(treeData).Replace("</", "<\\/");
+
+    // localStorage partition — recents only make sense within a single suite.
+    var suiteKey = Model.Sections.Count > 0 ? Model.Sections[0].SuiteId : 0;
+    var recentsKey = $"trn:recent-sections:suite={suiteKey}";
+
+    var selectedLabel = Model.SelectedId is int sid && byId.ContainsKey(sid)
+        ? $"{Breadcrumb(byId[sid])} (#{sid})"
+        : string.Empty;
+
+    var listId = Model.DisplayId + "-list";
+    var modalId = Model.DisplayId + "-tree-modal";
+}
+
+<div class="section-combobox" data-section-combobox data-recents-key="@recentsKey">
+    <div class="input-group">
+        <input type="text"
+               id="@Model.DisplayId"
+               list="@listId"
+               class="form-control"
+               autocomplete="off"
+               spellcheck="false"
+               placeholder="@Model.Placeholder"
+               value="@selectedLabel"
+               required="@Model.Required"
+               data-hidden-target="@(Model.DisplayId + "-hidden")"
+               data-tree-modal="@modalId"
+               disabled="@(Model.Sections.Count == 0)" />
+        <button type="button"
+                class="btn btn-outline-secondary"
+                data-bs-toggle="modal"
+                data-bs-target="#@modalId"
+                title="Browse the section folder tree"
+                disabled="@(Model.Sections.Count == 0)">
+            📁
+        </button>
+    </div>
+    <input type="hidden" id="@(Model.DisplayId + "-hidden")" name="@Model.HiddenName" value="@(Model.SelectedId?.ToString() ?? string.Empty)" />
+    <datalist id="@listId">
+        @foreach (var opt in options)
+        {
+            <option data-id="@opt.Id" value="@opt.Label"></option>
+        }
+    </datalist>
+    <script type="application/json" data-sections-for="@Model.DisplayId">@Html.Raw(treeJson)</script>
+    <div class="d-none mt-1" data-recents-row>
+        <span class="small text-muted me-1">Recent:</span>
+        <span data-recents-chips></span>
+    </div>
+    <div class="form-text">
+        Type to filter, click <strong>📁</strong> to browse, or paste a TestRail section URL (with <code>group_id</code> or <code>section_id</code>) to jump straight to it.
+    </div>
+</div>
+
+@* Folder-tree modal. JS builds the nested list on first open so huge trees don't bloat the initial render. *@
+<div class="modal fade" id="@modalId" tabindex="-1" aria-labelledby="@(modalId)-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="@(modalId)-title">Pick a section</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" class="form-control mb-3" placeholder="Filter by name or id…" data-tree-filter />
+                <div data-tree-root>
+                    <div class="text-muted">Loading tree…</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>

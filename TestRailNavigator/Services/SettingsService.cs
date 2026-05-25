@@ -47,6 +47,16 @@ public class SettingsService
 
             var json = await File.ReadAllTextAsync(_settingsPath);
             _cachedSettings = JsonSerializer.Deserialize<TestRailSettings>(json, _jsonOptions);
+#if DEBUG
+            // In DEBUG builds (Visual Studio local runs), always allow writes regardless of
+            // what is persisted on disk. Release/deployed builds honour the JSON value,
+            // which defaults to false so production runs in read-only mode unless explicitly
+            // enabled through the Setup page.
+            if (_cachedSettings is not null)
+            {
+                _cachedSettings.AllowWrites = true;
+            }
+#endif
             return _cachedSettings;
         }
         finally

@@ -162,10 +162,10 @@
             </div>
         }
 
-        @if (Model.Run is not null)
+        @if (Model.Run is { } currentRun)
         {
             <div class="d-flex justify-content-end mb-3">
-                @if (Model.WritesEnabled && !Model.Run.IsCompleted)
+                @if (Model.WritesEnabled && !currentRun.IsCompleted)
                 {
                     <div class="d-flex gap-2">
                         <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#closeRunModal">
@@ -184,18 +184,18 @@
                 }
             </div>
 
-            var totalTests = Model.Run.PassedCount + Model.Run.FailedCount + Model.Run.BlockedCount + Model.Run.UntestedCount;
-            var executedTests = Model.Run.PassedCount + Model.Run.FailedCount + Model.Run.BlockedCount;
+            var totalTests = currentRun.PassedCount + currentRun.FailedCount + currentRun.BlockedCount + currentRun.UntestedCount;
+            var executedTests = currentRun.PassedCount + currentRun.FailedCount + currentRun.BlockedCount;
 
             @if (totalTests > 0)
             {
-                var passedPct = (double)Model.Run.PassedCount / totalTests * 100;
-                var failedPct = (double)Model.Run.FailedCount / totalTests * 100;
-                var blockedPct = (double)Model.Run.BlockedCount / totalTests * 100;
-                var untestedPct = (double)Model.Run.UntestedCount / totalTests * 100;
+                var passedPct = (double)currentRun.PassedCount / totalTests * 100;
+                var failedPct = (double)currentRun.FailedCount / totalTests * 100;
+                var blockedPct = (double)currentRun.BlockedCount / totalTests * 100;
+                var untestedPct = (double)currentRun.UntestedCount / totalTests * 100;
 
                 var passRate = executedTests > 0
-                    ? (double)Model.Run.PassedCount / executedTests * 100
+                    ? (double)currentRun.PassedCount / executedTests * 100
                     : 0;
                 var completionRate = (double)executedTests / totalTests * 100;
 
@@ -240,19 +240,19 @@
                                 <ul class="pie-chart-legend">
                                     <li>
                                         <span class="swatch" style="background-color: var(--brand-teal);"></span>
-                                        Passed — @Model.Run.PassedCount (@($"{passedPct:F0}")%)
+                                        Passed — @currentRun.PassedCount (@($"{passedPct:F0}")%)
                                     </li>
                                     <li>
                                         <span class="swatch" style="background-color: #dc3545;"></span>
-                                        Failed — @Model.Run.FailedCount (@($"{failedPct:F0}")%)
+                                        Failed — @currentRun.FailedCount (@($"{failedPct:F0}")%)
                                     </li>
                                     <li>
                                         <span class="swatch" style="background-color: #ffc107;"></span>
-                                        Blocked — @Model.Run.BlockedCount (@($"{blockedPct:F0}")%)
+                                        Blocked — @currentRun.BlockedCount (@($"{blockedPct:F0}")%)
                                     </li>
                                     <li>
                                         <span class="swatch" style="background-color: #6c757d;"></span>
-                                        Untested — @Model.Run.UntestedCount (@($"{untestedPct:F0}")%)
+                                        Untested — @currentRun.UntestedCount (@($"{untestedPct:F0}")%)
                                     </li>
                                 </ul>
                             </div>
@@ -279,19 +279,19 @@
                                     </div>
                                     <div class="row text-center">
                                         <div class="col">
-                                            <div class="fw-bold text-success">@Model.Run.PassedCount</div>
+                                            <div class="fw-bold text-success">@currentRun.PassedCount</div>
                                             <div class="text-muted small">Passed</div>
                                         </div>
                                         <div class="col">
-                                            <div class="fw-bold text-danger">@Model.Run.FailedCount</div>
+                                            <div class="fw-bold text-danger">@currentRun.FailedCount</div>
                                             <div class="text-muted small">Failed</div>
                                         </div>
                                         <div class="col">
-                                            <div class="fw-bold" style="color: #ffc107;">@Model.Run.BlockedCount</div>
+                                            <div class="fw-bold" style="color: #ffc107;">@currentRun.BlockedCount</div>
                                             <div class="text-muted small">Blocked</div>
                                         </div>
                                         <div class="col">
-                                            <div class="fw-bold text-secondary">@Model.Run.UntestedCount</div>
+                                            <div class="fw-bold text-secondary">@currentRun.UntestedCount</div>
                                             <div class="text-muted small">Untested</div>
                                         </div>
                                     </div>
@@ -302,36 +302,36 @@
                 </div>
             }
 
-            var total = Model.Run.PassedCount + Model.Run.FailedCount + Model.Run.BlockedCount + Model.Run.UntestedCount;
+            var total = currentRun.PassedCount + currentRun.FailedCount + currentRun.BlockedCount + currentRun.UntestedCount;
             <div class="card mb-4">
                 <div class="card-header">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <strong>@Model.Run.Name</strong>
-                            <span class="text-muted small ms-2">(Run ID: @Model.Run.Id)</span>
+                            <strong>@currentRun.Name</strong>
+                            <span class="text-muted small ms-2">(Run ID: @currentRun.Id)</span>
                         </div>
                         <div class="d-flex gap-2">
-                            <span class="badge bg-success">@Model.Run.PassedCount Passed</span>
-                            <span class="badge bg-danger">@Model.Run.FailedCount Failed</span>
-                            <span class="badge bg-warning">@Model.Run.BlockedCount Blocked</span>
-                            <span class="badge bg-secondary">@Model.Run.UntestedCount Untested</span>
+                            <span class="badge bg-success">@currentRun.PassedCount Passed</span>
+                            <span class="badge bg-danger">@currentRun.FailedCount Failed</span>
+                            <span class="badge bg-warning">@currentRun.BlockedCount Blocked</span>
+                            <span class="badge bg-secondary">@currentRun.UntestedCount Untested</span>
                         </div>
                     </div>
                     @if (total > 0)
                     {
                         <div class="progress mt-2" style="height: 8px;">
                             <div class="progress-bar bg-success" role="progressbar"
-                                 style="width: @($"{(double)Model.Run.PassedCount / total * 100:F1}")%"
-                                 title="@Model.Run.PassedCount Passed"></div>
+                                 style="width: @($"{(double)currentRun.PassedCount / total * 100:F1}")%"
+                                 title="@currentRun.PassedCount Passed"></div>
                             <div class="progress-bar bg-danger" role="progressbar"
-                                 style="width: @($"{(double)Model.Run.FailedCount / total * 100:F1}")%"
-                                 title="@Model.Run.FailedCount Failed"></div>
+                                 style="width: @($"{(double)currentRun.FailedCount / total * 100:F1}")%"
+                                 title="@currentRun.FailedCount Failed"></div>
                             <div class="progress-bar bg-warning" role="progressbar"
-                                 style="width: @($"{(double)Model.Run.BlockedCount / total * 100:F1}")%"
-                                 title="@Model.Run.BlockedCount Blocked"></div>
+                                 style="width: @($"{(double)currentRun.BlockedCount / total * 100:F1}")%"
+                                 title="@currentRun.BlockedCount Blocked"></div>
                             <div class="progress-bar bg-secondary" role="progressbar"
-                                 style="width: @($"{(double)Model.Run.UntestedCount / total * 100:F1}")%"
-                                 title="@Model.Run.UntestedCount Untested"></div>
+                                 style="width: @($"{(double)currentRun.UntestedCount / total * 100:F1}")%"
+                                 title="@currentRun.UntestedCount Untested"></div>
                         </div>
                     }
                 </div>
@@ -388,7 +388,7 @@
                                                     data-bs-target="#quickViewModal">
                                                 <i class="bi bi-eye"></i>
                                             </button>
-                                            @if (!Model.Run.IsCompleted)
+                                            @if (!currentRun.IsCompleted)
                                             {
                                                 <button type="button" class="btn btn-sm btn-outline-warning quick-edit-btn"
                                                         data-test-id="@test.Id"
@@ -412,7 +412,7 @@
                                                         data-bs-target="#quickCaseEditModal">
                                                     <i class="bi bi-gear"></i>
                                                 </button>
-                                                @if (!Model.Run.IsCompleted)
+                                                @if (!currentRun.IsCompleted)
                                                 {
                                                     <button type="button" class="btn btn-sm btn-outline-danger remove-test-btn"
                                                             data-case-id="@test.CaseId"
@@ -448,14 +448,8 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="caseSectionId" class="form-label">Section *</label>
-                        <select name="CaseSectionId" id="caseSectionId" class="form-select" required>
-                            <option value="">Select a section...</option>
-                            @foreach (var sec in Model.Sections)
-                            {
-                                var indent = new string('\u2014', sec.Depth);
-                                <option value="@sec.Id">@indent @sec.Name</option>
-                            }
-                        </select>
+                        @await Html.PartialAsync("_SectionCombobox",
+                            ("CaseSectionId", "caseSectionId", Model.Sections, (int?)null, true, "Type to filter — e.g. 'regression plan details'"))
                     </div>
                     <div class="mb-3">
                         <label for="caseTitle" class="form-label">Title *</label>

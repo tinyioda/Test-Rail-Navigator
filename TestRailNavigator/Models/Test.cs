@@ -87,6 +87,15 @@ public class Test
     public string? ExpectedResult { get; set; }
 
     /// <summary>
+    /// Gets or sets the separated steps (custom field) when the test case uses
+    /// per-step expected results. Each entry contains a step instruction and its
+    /// expected outcome. Mutually exclusive with the flat <see cref="Steps"/> /
+    /// <see cref="ExpectedResult"/> pair in TestRail's data model.
+    /// </summary>
+    [JsonPropertyName("custom_steps_separated")]
+    public List<TestStep>? StepsSeparated { get; set; }
+
+    /// <summary>
     /// Gets the human-readable status name based on the status identifier.
     /// </summary>
     public string StatusName => StatusId switch

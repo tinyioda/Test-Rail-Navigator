@@ -28,7 +28,16 @@
                             <a class="nav-link" asp-area="" asp-page="/Index">Home</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" asp-area="" asp-page="/Privacy">Privacy</a>
+                            <a class="nav-link" asp-area="" asp-page="/GenerateCases">Generate Cases</a>
+                        </li>
+                        <li class="nav-item">
+                            <span class="nav-link disabled" aria-disabled="true" tabindex="-1" title="Coming soon">Generate Hierarchy</span>
+                        </li>
+                        <li class="nav-item">
+                            <span class="nav-link disabled" aria-disabled="true" tabindex="-1" title="Coming soon">New Plan from Story</span>
+                        </li>
+                        <li class="nav-item">
+                            <span class="nav-link disabled" aria-disabled="true" tabindex="-1" title="Coming soon">Privacy</span>
                         </li>
                     </ul>
                     <ul class="navbar-nav align-items-center">
@@ -61,7 +70,7 @@
 
     <footer class="footer py-3" style="background-color: var(--brand-dark, #1a1a1a); color: rgba(255,255,255,.6);">
         <div class="container-fluid px-4">
-            &copy; 2026 - TestRailNavigator - <a asp-area="" asp-page="/Privacy" style="color: var(--brand-teal);">Privacy</a>
+            &copy; 2026 - TestRailNavigator - <span class="text-muted" title="Coming soon">Privacy</span>
         </div>
     </footer>
 
@@ -77,6 +86,7 @@
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     <script src="~/js/sortable.js" asp-append-version="true"></script>
+    <script src="~/js/section-combobox.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>

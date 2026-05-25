@@ -1,0 +1,439 @@
+@page
+@model GenerateCasesModel
+@{
+    ViewData["Title"] = "Generate Cases from Azure DevOps";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-page="/Index">Projects</a></li>
+        <li class="breadcrumb-item active">Generate Cases</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="mb-1">Generate Cases from Azure DevOps</h1>
+        <p class="text-muted mb-0">
+            Paste a single AzDO work item URL. The wizard parses its acceptance criteria into test
+            case drafts, lets you pick or create a multi-level destination path, and — only after you
+            confirm — creates the cases in TestRail.
+        </p>
+    </div>
+    <div>
+        @if (Model.WritesEnabled)
+        {
+            <span class="badge text-bg-success">Writes enabled</span>
+        }
+        else
+        {
+            <span class="badge text-bg-warning">Read-only — Confirm is disabled</span>
+        }
+    </div>
+</div>
+
+@if (!Model.AzureDevOpsConfigured)
+{
+    <div class="alert alert-warning">
+        An Azure DevOps personal access token is not configured.
+        Add one on the <a asp-page="/Setup">Setup</a> page before generating cases.
+    </div>
+}
+
+@if (!Model.WritesEnabled)
+{
+    <div class="alert alert-warning">
+        Write operations are disabled. Enable <strong>AllowWrites</strong> on the
+        <a asp-page="/Setup">Setup</a> page to generate cases.
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @Model.SuccessMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @Model.ErrorMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<form method="post" asp-page-handler="Load" class="card p-3 mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-12">
+            <label asp-for="WorkItemUrl" class="form-label">Azure DevOps Work Item URL</label>
+            <input asp-for="WorkItemUrl" class="form-control"
+                   placeholder="https://dev.azure.com/.../_workitems/edit/1234" />
+            <div class="form-text">
+                Supports <code>dev.azure.com</code>, on-prem TFS, and legacy
+                <code>{org}.visualstudio.com</code> links.
+            </div>
+        </div>
+        <div class="col-md-10">
+            <label for="ProjectId" class="form-label">Destination TestRail project <span class="text-muted">(optional until Confirm)</span></label>
+            <select name="ProjectId" id="ProjectId" class="form-select">
+                <option value="">Select a project...</option>
+                @foreach (var project in Model.Projects)
+                {
+                    <option value="@project.Id" selected="@(Model.ProjectId == project.Id)">@project.Name</option>
+                }
+            </select>
+            <div class="form-text">
+                Picking a project here loads its section tree so you can pick a destination below.
+                You can also pick the project later and click <em>Load Story</em> again.
+            </div>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100"
+                    disabled="@(!Model.AzureDevOpsConfigured)">
+                <i class="bi bi-download"></i> Load Story
+            </button>
+        </div>
+    </div>
+</form>
+
+@if (Model.PreviewReady)
+{
+    <form method="post" asp-page-handler="Confirm" id="confirmForm">
+        <input type="hidden" name="ProjectId" value="@Model.ProjectId" />
+        <input type="hidden" name="SuiteId" value="@Model.SuiteId" />
+        <input type="hidden" asp-for="WorkItemUrl" />
+        <input type="hidden" asp-for="StoryId" />
+        <input type="hidden" asp-for="StoryTitle" />
+        <input type="hidden" asp-for="StoryType" />
+        <input type="hidden" asp-for="DetectedAcFormat" />
+        <input type="hidden" asp-for="DetectedAcItemCount" />
+        <input type="hidden" asp-for="AllAcPlainText" />
+        <input type="hidden" asp-for="StoryDescriptionPlainText" />
+
+        <div class="card p-3 mb-3">
+            <h5 class="mb-3">1. Work item</h5>
+            <div class="row g-2">
+                <div class="col-md-2"><strong>Id</strong></div>
+                <div class="col-md-10">@(Model.StoryId?.ToString() ?? "—")</div>
+                <div class="col-md-2"><strong>Type</strong></div>
+                <div class="col-md-10">@Model.StoryType</div>
+                <div class="col-md-2"><strong>Title</strong></div>
+                <div class="col-md-10">@Model.StoryTitle</div>
+                <div class="col-md-2"><strong>AC format</strong></div>
+                <div class="col-md-10">
+                    <span class="badge text-bg-secondary">@Model.DetectedAcFormat</span>
+                    — @(Model.DetectedAcItemCount ?? 0) item(s) detected
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-3 mb-3">
+            <h5 class="mb-3">2. Destination path</h5>
+            @if (Model.ProjectId is not > 0)
+            {
+                <div class="alert alert-warning mb-0 py-2">
+                    Select a <strong>Destination TestRail project</strong> above and click
+                    <em>Load Story</em> again to choose a section.
+                </div>
+            }
+            else
+            {
+                <p class="text-muted small mb-2">
+                    Pick an existing section from the combobox, or type a name on the right to
+                    create a brand-new sub-section under it. The new sub-section is only
+                    created when you click Confirm.
+                </p>
+                <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Existing section</label>
+                    @await Html.PartialAsync("_SectionCombobox",
+                        ("SectionId", "generate-cases-section", Model.Sections, Model.SectionId, false, "Type any part of the breadcrumb"))
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="NewSectionName" class="form-label">…or create a new sub-section</label>
+                    <input asp-for="NewSectionName" class="form-control"
+                           placeholder="e.g. My New Folder" />
+                    <div class="form-text">
+                        If provided, a new sub-section with this name is created
+                        <strong>under the section picked on the left</strong>
+                        (or at the suite root if none is picked). Creation only happens when you
+                        click Confirm.
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(Model.ResolvedDestinationBreadcrumb))
+                {
+                    <div class="col-md-12">
+                        <div class="alert alert-info mb-0 py-2">
+                            <strong>Resolved destination:</strong> @Model.ResolvedDestinationBreadcrumb
+                        </div>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(Model.DestinationMessage))
+                {
+                    <div class="col-md-12">
+                        <div class="alert alert-warning mb-0 py-2">@Model.DestinationMessage</div>
+                    </div>
+                }
+                </div>
+            }
+        </div>
+
+        <div class="card p-3 mb-3">
+            <h5 class="mb-3">3. Defaults</h5>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="CaseTypeId" class="form-label">Type (applied when a row has none)</label>
+                    <select asp-for="CaseTypeId" class="form-select">
+                        <option value="">None</option>
+                        <option value="1">Acceptance</option>
+                        <option value="2">Accessibility</option>
+                        <option value="3">Automated</option>
+                        <option value="4">Compatibility</option>
+                        <option value="5">Destructive</option>
+                        <option value="6">Functional</option>
+                        <option value="7">Other</option>
+                        <option value="8">Performance</option>
+                        <option value="9">Regression</option>
+                        <option value="10">Security</option>
+                        <option value="11">Smoke &amp; Sanity</option>
+                        <option value="12">Usability</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="CasePriorityId" class="form-label">Priority (applied when a row has none)</label>
+                    <select asp-for="CasePriorityId" class="form-select">
+                        <option value="">None</option>
+                        <option value="1">Low</option>
+                        <option value="2">Medium</option>
+                        <option value="3">High</option>
+                        <option value="4">Critical</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-3 mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                <div>
+                    <h5 class="mb-0">4. Cases (one per acceptance criterion)</h5>
+                    <span class="text-muted small">Uncheck a row to skip it. Edit in place; values round-trip on submit.</span>
+                </div>
+                <div class="text-end">
+                    @if (Model.EnrichmentConfigured)
+                    {
+                        <button type="submit" class="btn btn-outline-primary"
+                                formaction="?handler=Enrich"
+                                title="Use @Model.EnrichmentDisplayName to expand each AC into structured steps + expected results.">
+                            <i class="bi bi-stars"></i> Enrich with AI
+                        </button>
+                        <div class="text-muted small mt-1">via @Model.EnrichmentDisplayName</div>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-outline-secondary" disabled
+                                title="Configure OpenAiEndpoint, OpenAiApiKey and OpenAiModel on the Setup page to enable AI enrichment.">
+                            <i class="bi bi-stars"></i> Enrich with AI
+                        </button>
+                        <div class="text-muted small mt-1">AI not configured (see Setup)</div>
+                    }
+                </div>
+            </div>
+            @if (Model.Cases.Count == 0)
+            {
+                <div class="text-muted">No acceptance criteria were detected. Load a different work item or paste AC content manually below.</div>
+            }
+            else
+            {
+                @for (var i = 0; i < Model.Cases.Count; i++)
+                {
+                    var draft = Model.Cases[i];
+                    var hasSeparated = draft.StepsSeparated is { Count: > 0 };
+                    <div class="border rounded p-3 mb-3" data-case-index="@i">
+                        <div class="d-flex align-items-center mb-2 gap-2">
+                            <div class="form-check mb-0">
+                                <input type="checkbox" class="form-check-input"
+                                       id="case-include-@i"
+                                       name="Cases[@i].Include" value="true"
+                                       checked="@draft.Include" />
+                                <input type="hidden" name="Cases[@i].Include" value="false" />
+                                <label for="case-include-@i" class="form-check-label small text-muted">Include</label>
+                            </div>
+                            <span class="badge text-bg-secondary">Case @(i + 1) of @Model.Cases.Count</span>
+                            @if (draft.Enriched)
+                            {
+                                <span class="badge text-bg-info"><i class="bi bi-stars"></i> AI-enriched</span>
+                            }
+                        </div>
+                        <input type="hidden" name="Cases[@i].Refs" value="@draft.Refs" />
+                        <input type="hidden" name="Cases[@i].OriginalTitle" value="@draft.OriginalTitle" />
+                        <input type="hidden" name="Cases[@i].OriginalSteps" value="@draft.OriginalSteps" />
+                        <input type="hidden" name="Cases[@i].OriginalExpected" value="@draft.OriginalExpected" />
+                        <input type="hidden" name="Cases[@i].OriginalPreconditions" value="@draft.OriginalPreconditions" />
+                        <input type="hidden" name="Cases[@i].Enriched" value="@(draft.Enriched ? "true" : "false")" />
+                        @if (draft.TemplateId.HasValue)
+                        {
+                            <input type="hidden" name="Cases[@i].TemplateId" value="@draft.TemplateId.Value" />
+                        }
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold mb-1">Title</label>
+                            <textarea name="Cases[@i].Title" class="form-control" rows="2"
+                                      style="min-height:3rem;">@draft.Title</textarea>
+                        </div>
+                        @if (draft.Enriched || !string.IsNullOrWhiteSpace(draft.Summary))
+                        {
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold mb-1">Summary</label>
+                                <textarea name="Cases[@i].Summary" class="form-control" rows="3"
+                                          style="min-height:5rem;">@draft.Summary</textarea>
+                            </div>
+                        }
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold mb-1">Preconditions</label>
+                            <textarea name="Cases[@i].Preconditions" class="form-control" rows="6"
+                                      style="min-height:9rem;">@draft.Preconditions</textarea>
+                        </div>
+                        @if (hasSeparated)
+                        {
+                            <div class="mb-0">
+                                <label class="form-label fw-semibold mb-1">Steps (structured)</label>
+                                <table class="table table-sm align-top mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:3rem;">#</th>
+                                            <th>Step</th>
+                                            <th>Expected</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @for (var s = 0; s < draft.StepsSeparated!.Count; s++)
+                                        {
+                                            <tr>
+                                                <td class="text-muted small">@(s + 1)</td>
+                                                <td>
+                                                    <textarea name="Cases[@i].StepsSeparated[@s].Content"
+                                                              class="form-control form-control-sm" rows="3"
+                                                              style="min-height:5rem;">@draft.StepsSeparated[s].Content</textarea>
+                                                </td>
+                                                <td>
+                                                    <textarea name="Cases[@i].StepsSeparated[@s].Expected"
+                                                              class="form-control form-control-sm" rows="3"
+                                                              style="min-height:5rem;">@draft.StepsSeparated[s].Expected</textarea>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                                <input type="hidden" name="Cases[@i].Steps" value="" />
+                                <input type="hidden" name="Cases[@i].Expected" value="" />
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold mb-1">Steps</label>
+                                <textarea name="Cases[@i].Steps" class="form-control" rows="12"
+                                          style="min-height:18rem; font-family:var(--bs-font-monospace); font-size:.95em;">@draft.Steps</textarea>
+                            </div>
+                            <div class="mb-0">
+                                <label class="form-label fw-semibold mb-1">Expected result</label>
+                                <textarea name="Cases[@i].Expected" class="form-control" rows="6"
+                                          style="min-height:9rem;">@draft.Expected</textarea>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        </div>
+
+        <div class="d-flex justify-content-end align-items-center gap-2 mb-5">
+            @if (Model.WritesEnabled)
+            {
+                <button type="button" class="btn btn-success"
+                        data-bs-toggle="modal" data-bs-target="#confirmCreateModal">
+                    <i class="bi bi-check2-square"></i> Confirm &amp; Create
+                </button>
+            }
+            else
+            {
+                <span class="text-muted align-self-center">
+                    Write operations are disabled. Enable <code>AllowWrites</code> in Setup to create cases.
+                </span>
+            }
+        </div>
+
+        <div class="modal fade" id="confirmCreateModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Are you sure?</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-2">This will create the following in TestRail:</p>
+                        <ul class="mb-2">
+                            @if (Model.PlannedNewSegments.Count > 0)
+                            {
+                                <li>
+                                    @Model.PlannedNewSegments.Count new section(s):
+                                    <code>@string.Join(" / ", Model.PlannedNewSegments)</code>
+                                </li>
+                            }
+                            <li>@Model.Cases.Count(c => c.Include) test case(s)</li>
+                        </ul>
+                        <p class="mb-0"><strong>Destination:</strong> @(Model.ResolvedDestinationBreadcrumb ?? "—")</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check2-circle"></i> Yes, create them
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+}
+
+@if (Model.Results.Count > 0)
+{
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">Generation results</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>Draft title</th>
+                            <th>Outcome</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var result in Model.Results)
+                        {
+                            <tr>
+                                <td>@result.Label</td>
+                                <td>
+                                    @if (result.Success)
+                                    {
+                                        <span class="badge bg-success me-2">Created</span>
+                                        <span>C@(result.CaseId) — @result.CaseTitle</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger me-2">Failed</span>
+                                        <span>@result.ErrorMessage</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}

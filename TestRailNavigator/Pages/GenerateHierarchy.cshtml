@@ -1,0 +1,256 @@
+@page
+@model GenerateHierarchyModel
+@{
+    ViewData["Title"] = "Generate Hierarchy from Azure DevOps";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-page="/Index">Projects</a></li>
+        <li class="breadcrumb-item active">Generate Hierarchy</li>
+    </ol>
+</nav>
+
+<div class="mb-4">
+    <h1 class="mb-1">Generate Hierarchy from Azure DevOps</h1>
+    <p class="text-muted mb-0">
+        Paste an Epic, Feature, or Story URL and build the full TestRail structure
+        (milestone → child milestones → plans → runs → cases) from its acceptance criteria.
+    </p>
+</div>
+
+<div class="card mb-4 border-0 bg-light">
+    <div class="card-body small">
+        <strong>Mapping:</strong>
+        Epic → root Milestone &nbsp;•&nbsp;
+        Feature → child Milestone &nbsp;•&nbsp;
+        Story / Bug / PBI → Plan + Run &nbsp;•&nbsp;
+        Acceptance Criterion → Case.
+        Existing entities whose name starts with <code>[AB#&lt;id&gt;]</code> are reused.
+        Gherkin <code>When/Then</code> blocks, <code>&lt;li&gt;</code> lists, and blank-line paragraphs
+        are each detected automatically.
+    </div>
+</div>
+
+@if (Model.ConfiguredTrackers.Count > 0)
+{
+    <div class="alert alert-info small">
+        Configured trackers: <strong>@string.Join(", ", Model.ConfiguredTrackers)</strong>.
+        @if (Model.UnconfiguredTrackers.Count > 0)
+        {
+            <span>Not yet configured: @string.Join(", ", Model.UnconfiguredTrackers) (add credentials on the <a asp-page="/Setup">Setup</a> page).</span>
+        }
+    </div>
+}
+else
+{
+    <div class="alert alert-warning">
+        No issue tracker credentials configured yet. Add an Azure DevOps PAT on the
+        <a asp-page="/Setup">Setup</a> page to proceed.
+    </div>
+}
+
+@if (!Model.WritesEnabled)
+{
+    <div class="alert alert-warning">
+        Write operations are disabled. Enable <strong>AllowWrites</strong> on the
+        <a asp-page="/Setup">Setup</a> page to generate the hierarchy.
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @Model.SuccessMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @Model.ErrorMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">1. Destination</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label for="ProjectId" class="form-label">Project</label>
+                <select name="ProjectId" id="ProjectId" class="form-select" onchange="this.form.submit()">
+                    <option value="">Select a project...</option>
+                    @foreach (var project in Model.Projects)
+                    {
+                        <option value="@project.Id" selected="@(Model.ProjectId == project.Id)">@project.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="SuiteId" class="form-label">Suite (for cases)</label>
+                <select name="SuiteId" id="SuiteId" class="form-select"
+                        onchange="this.form.submit()"
+                        disabled="@(Model.Suites.Count == 0)">
+                    <option value="">Select a suite...</option>
+                    @foreach (var suite in Model.Suites)
+                    {
+                        <option value="@suite.Id" selected="@(Model.SuiteId == suite.Id)">@suite.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4 text-muted small">
+                Changing project or suite reloads the page to refresh downstream lists.
+            </div>
+        </form>
+    </div>
+</div>
+
+<form method="post">
+    <input type="hidden" name="ProjectId" value="@Model.ProjectId" />
+    <input type="hidden" name="SuiteId" value="@Model.SuiteId" />
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">2. Root work item</h5>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label asp-for="RootUrl" class="form-label">Azure DevOps URL *</label>
+                <input asp-for="RootUrl"
+                       type="url"
+                       class="form-control font-monospace"
+                       placeholder="https://dev.azure.com/your-org/your-project/_workitems/edit/12345"
+                       required />
+                <div class="form-text">
+                    An Epic builds the full tree. A Feature builds child milestone + plans.
+                    A Story/Bug builds a single plan nested under the optional parent milestone below.
+                </div>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label asp-for="ParentMilestoneId" class="form-label">Parent milestone (optional)</label>
+                    <select asp-for="ParentMilestoneId" class="form-select" disabled="@(Model.Milestones.Count == 0)">
+                        <option value="">None (top level)</option>
+                        @foreach (var milestone in Model.Milestones)
+                        {
+                            <option value="@milestone.Id">@milestone.Name</option>
+                        }
+                    </select>
+                    <div class="form-text">Only used when the root URL is a Feature or Story.</div>
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="DefaultTypeId" class="form-label">Case type</label>
+                    <select asp-for="DefaultTypeId" class="form-select">
+                        <option value="">None</option>
+                        <option value="1">Acceptance</option>
+                        <option value="2">Accessibility</option>
+                        <option value="3">Automated</option>
+                        <option value="4">Compatibility</option>
+                        <option value="5">Destructive</option>
+                        <option value="6">Functional</option>
+                        <option value="7">Other</option>
+                        <option value="8">Performance</option>
+                        <option value="9">Regression</option>
+                        <option value="10">Security</option>
+                        <option value="11">Smoke &amp; Sanity</option>
+                        <option value="12">Usability</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label asp-for="DefaultPriorityId" class="form-label">Priority</label>
+                    <select asp-for="DefaultPriorityId" class="form-select">
+                        <option value="">None</option>
+                        <option value="1">Low</option>
+                        <option value="2">Medium</option>
+                        <option value="3">High</option>
+                        <option value="4">Critical</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end">
+        <button type="submit"
+                class="btn btn-primary"
+                disabled="@(!Model.WritesEnabled || Model.ConfiguredTrackers.Count == 0)">
+            <i class="bi bi-diagram-3"></i> Generate Hierarchy
+        </button>
+    </div>
+</form>
+
+@if (Model.Report is not null)
+{
+    var report = Model.Report;
+    <div class="card mt-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Results</h5>
+            <span class="text-muted small">
+                Root: <strong>@report.Root.RawType @report.Root.Reference</strong> — @report.Root.Title
+            </span>
+        </div>
+        <div class="card-body">
+            @if (report.Warnings.Count > 0)
+            {
+                <div class="alert alert-warning">
+                    <strong>Warnings:</strong>
+                    <ul class="mb-0">
+                        @foreach (var w in report.Warnings)
+                        {
+                            <li>@w</li>
+                        }
+                    </ul>
+                </div>
+            }
+
+            <div class="row g-3">
+                @{
+                    void RenderGroup(string label, List<TestRailNavigator.Services.EntityRef> created, List<TestRailNavigator.Services.EntityRef> reused)
+                    {
+                        <div class="col-md-6 col-xl-4">
+                            <div class="border rounded p-3 h-100">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <strong>@label</strong>
+                                    <span class="text-muted small">
+                                        <span class="badge bg-success">@created.Count new</span>
+                                        @if (reused.Count > 0)
+                                        {
+                                            <span class="badge bg-secondary ms-1">@reused.Count reused</span>
+                                        }
+                                    </span>
+                                </div>
+                                @if (created.Count + reused.Count == 0)
+                                {
+                                    <div class="text-muted small">None.</div>
+                                }
+                                else
+                                {
+                                    <ul class="list-unstyled small mb-0">
+                                        @foreach (var e in created.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase))
+                                        {
+                                            <li><span class="badge bg-success me-1">new</span>#@e.Id — @e.Name</li>
+                                        }
+                                        @foreach (var e in reused.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase))
+                                        {
+                                            <li><span class="badge bg-secondary me-1">reused</span>#@e.Id — @e.Name</li>
+                                        }
+                                    </ul>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    RenderGroup("Milestones", report.MilestonesCreated, report.MilestonesReused);
+                    RenderGroup("Plans", report.PlansCreated, report.PlansReused);
+                    RenderGroup("Runs", report.RunsCreated, new List<TestRailNavigator.Services.EntityRef>());
+                    RenderGroup("Sections", report.SectionsCreated, report.SectionsReused);
+                    RenderGroup("Cases", report.CasesCreated, new List<TestRailNavigator.Services.EntityRef>());
+                }
+            </div>
+        </div>
+    </div>
+}

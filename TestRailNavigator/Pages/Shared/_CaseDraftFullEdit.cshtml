@@ -1,0 +1,42 @@
+@*
+    _CaseDraftFullEdit — Shared partial rendering the "full edit" fields for a single CaseDraft
+    that aren't visible in the quick-edit grid (type, priority, template, estimate, refs).
+    Model is a (int Index, TestRailNavigator.Models.CaseDraft Draft) tuple so the inputs bind
+    into `Wizard.Cases[i].*` on POST without any extra plumbing.
+*@
+@model (int Index, TestRailNavigator.Models.CaseDraft Draft)
+@{
+    var i = Model.Index;
+    var d = Model.Draft;
+}
+
+<div class="row g-2">
+    <div class="col-md-3">
+        <label class="form-label small mb-1">Type id</label>
+        <input name="Wizard.Cases[@i].TypeId" type="number" min="0" class="form-control form-control-sm" value="@d.TypeId" placeholder="e.g. 1 = Functional" />
+    </div>
+    <div class="col-md-3">
+        <label class="form-label small mb-1">Priority id</label>
+        <input name="Wizard.Cases[@i].PriorityId" type="number" min="0" class="form-control form-control-sm" value="@d.PriorityId" placeholder="e.g. 3 = Medium" />
+    </div>
+    <div class="col-md-3">
+        <label class="form-label small mb-1">Template id</label>
+        <input name="Wizard.Cases[@i].TemplateId" type="number" min="0" class="form-control form-control-sm" value="@d.TemplateId" placeholder="1 = Text, 2 = Steps" />
+    </div>
+    <div class="col-md-3">
+        <label class="form-label small mb-1">Estimate</label>
+        <input name="Wizard.Cases[@i].Estimate" class="form-control form-control-sm" value="@d.Estimate" placeholder="e.g. 5m" />
+    </div>
+    <div class="col-md-12">
+        <label class="form-label small mb-1">Refs</label>
+        <input name="Wizard.Cases[@i].Refs" class="form-control form-control-sm" value="@d.Refs" placeholder="AB#1234" />
+    </div>
+    <div class="col-md-12 d-flex justify-content-end">
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary"
+                data-revert-index="@i"
+                title="Restore Title/Preconditions/Steps/Expected to what the AC parser produced">
+            <i class="bi bi-arrow-counterclockwise"></i> Revert to parsed
+        </button>
+    </div>
+</div>

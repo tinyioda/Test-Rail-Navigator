@@ -493,6 +493,17 @@ public class TestRailClient
     }
 
     /// <summary>
+    /// Gets all test cases in a specific section. Used by the wizard's duplicate-title check
+    /// so we don't fetch the entire suite just to compare a handful of titles.
+    /// </summary>
+    public async Task<List<TestCase>> GetCasesBySectionAsync(int projectId, int suiteId, int sectionId)
+    {
+        await EnsureConfiguredAsync();
+        var url = $"{_apiBase}get_cases/{projectId}&suite_id={suiteId}&section_id={sectionId}";
+        return await GetAllPaginatedAsync<TestCase>(url, "cases");
+    }
+
+    /// <summary>
     /// Gets all sections for a specific project and suite.
     /// </summary>
     /// <param name="projectId">The project identifier.</param>
@@ -503,6 +514,71 @@ public class TestRailClient
         await EnsureConfiguredAsync();
         var url = $"{_apiBase}get_sections/{projectId}&suite_id={suiteId}";
         return await GetAllPaginatedAsync<Section>(url, "sections");
+    }
+
+    /// <summary>
+    /// Creates a new section inside a project/suite.
+    /// </summary>
+    /// <param name="projectId">The project identifier.</param>
+    /// <param name="suiteId">The suite identifier.</param>
+    /// <param name="name">The section name.</param>
+    /// <param name="parentId">The parent section identifier for nested sections, or <see langword="null"/> for a top-level section.</param>
+    /// <param name="description">An optional description.</param>
+    /// <returns>The created section.</returns>
+    public async Task<Section?> AddSectionAsync(int projectId, int suiteId, string name, int? parentId = null, string? description = null)
+    {
+        await EnsureConfiguredAsync();
+        var body = new Dictionary<string, object?>
+        {
+            ["suite_id"] = suiteId,
+            ["name"] = name
+        };
+        if (parentId is > 0) body["parent_id"] = parentId;
+        if (!string.IsNullOrWhiteSpace(description)) body["description"] = description;
+
+        var response = await _httpClient.PostAsJsonAsync($"{_apiBase}add_section/{projectId}", body, _jsonOptions);
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<Section>(_jsonOptions);
+    }
+
+    /// <summary>
+    /// Creates a chain of nested sections below an existing parent (or at root when <paramref name="parentSectionId"/>
+    /// is <see langword="null"/>), one segment at a time, and returns the identifier of the final leaf section.
+    /// </summary>
+    /// <param name="projectId">The project identifier.</param>
+    /// <param name="suiteId">The suite identifier.</param>
+    /// <param name="parentSectionId">
+    /// The identifier of the deepest section that already exists along the target path, or
+    /// <see langword="null"/> when the new segments should be created at suite root.
+    /// </param>
+    /// <param name="newSegments">The ordered list of section names to create beneath the parent.</param>
+    /// <returns>The identifier of the final (deepest) created section, or <paramref name="parentSectionId"/> when no segments are provided.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when TestRail does not return a created section or when no parent/segments are supplied.</exception>
+    public async Task<int> EnsureSectionPathAsync(int projectId, int suiteId, int? parentSectionId, IReadOnlyList<string> newSegments)
+    {
+        if (newSegments is null || newSegments.Count == 0)
+        {
+            return parentSectionId
+                ?? throw new InvalidOperationException("EnsureSectionPathAsync requires either a parent section or at least one new segment.");
+        }
+
+        int? cursorParent = parentSectionId;
+        int? lastCreatedId = null;
+        foreach (var name in newSegments)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                throw new InvalidOperationException("Section-path segments cannot be empty or whitespace.");
+            }
+
+            var created = await AddSectionAsync(projectId, suiteId, name.Trim(), cursorParent)
+                ?? throw new InvalidOperationException($"TestRail did not return a section after creating '{name}'.");
+            cursorParent = created.Id;
+            lastCreatedId = created.Id;
+        }
+
+        return lastCreatedId
+            ?? throw new InvalidOperationException("No sections were created — EnsureSectionPathAsync produced no leaf.");
     }
 
     /// <summary>

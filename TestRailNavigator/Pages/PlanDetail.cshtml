@@ -162,20 +162,20 @@
             </div>
         }
 
-        @if (Model.Plan is not null)
+        @if (Model.Plan is { } currentPlan)
         {
-            var totalTests = Model.Plan.PassedCount + Model.Plan.FailedCount + Model.Plan.BlockedCount + Model.Plan.UntestedCount;
-            var executedTests = Model.Plan.PassedCount + Model.Plan.FailedCount + Model.Plan.BlockedCount;
+            var totalTests = currentPlan.PassedCount + currentPlan.FailedCount + currentPlan.BlockedCount + currentPlan.UntestedCount;
+            var executedTests = currentPlan.PassedCount + currentPlan.FailedCount + currentPlan.BlockedCount;
 
             @if (totalTests > 0)
             {
-                var passedPct = (double)Model.Plan.PassedCount / totalTests * 100;
-                var failedPct = (double)Model.Plan.FailedCount / totalTests * 100;
-                var blockedPct = (double)Model.Plan.BlockedCount / totalTests * 100;
-                var untestedPct = (double)Model.Plan.UntestedCount / totalTests * 100;
+                var passedPct = (double)currentPlan.PassedCount / totalTests * 100;
+                var failedPct = (double)currentPlan.FailedCount / totalTests * 100;
+                var blockedPct = (double)currentPlan.BlockedCount / totalTests * 100;
+                var untestedPct = (double)currentPlan.UntestedCount / totalTests * 100;
 
                 var passRate = executedTests > 0
-                    ? (double)Model.Plan.PassedCount / executedTests * 100
+                    ? (double)currentPlan.PassedCount / executedTests * 100
                     : 0;
                 var completionRate = (double)executedTests / totalTests * 100;
 
@@ -220,19 +220,19 @@
                                 <ul class="pie-chart-legend">
                                     <li>
                                         <span class="swatch" style="background-color: var(--brand-teal);"></span>
-                                        Passed — @Model.Plan.PassedCount (@($"{passedPct:F0}")%)
+                                        Passed — @currentPlan.PassedCount (@($"{passedPct:F0}")%)
                                     </li>
                                     <li>
                                         <span class="swatch" style="background-color: #dc3545;"></span>
-                                        Failed — @Model.Plan.FailedCount (@($"{failedPct:F0}")%)
+                                        Failed — @currentPlan.FailedCount (@($"{failedPct:F0}")%)
                                     </li>
                                     <li>
                                         <span class="swatch" style="background-color: #ffc107;"></span>
-                                        Blocked — @Model.Plan.BlockedCount (@($"{blockedPct:F0}")%)
+                                        Blocked — @currentPlan.BlockedCount (@($"{blockedPct:F0}")%)
                                     </li>
                                     <li>
                                         <span class="swatch" style="background-color: #6c757d;"></span>
-                                        Untested — @Model.Plan.UntestedCount (@($"{untestedPct:F0}")%)
+                                        Untested — @currentPlan.UntestedCount (@($"{untestedPct:F0}")%)
                                     </li>
                                 </ul>
                             </div>
@@ -259,19 +259,19 @@
                                     </div>
                                     <div class="row text-center">
                                         <div class="col">
-                                            <div class="fw-bold text-success">@Model.Plan.PassedCount</div>
+                                            <div class="fw-bold text-success">@currentPlan.PassedCount</div>
                                             <div class="text-muted small">Passed</div>
                                         </div>
                                         <div class="col">
-                                            <div class="fw-bold text-danger">@Model.Plan.FailedCount</div>
+                                            <div class="fw-bold text-danger">@currentPlan.FailedCount</div>
                                             <div class="text-muted small">Failed</div>
                                         </div>
                                         <div class="col">
-                                            <div class="fw-bold" style="color: #ffc107;">@Model.Plan.BlockedCount</div>
+                                            <div class="fw-bold" style="color: #ffc107;">@currentPlan.BlockedCount</div>
                                             <div class="text-muted small">Blocked</div>
                                         </div>
                                         <div class="col">
-                                            <div class="fw-bold text-secondary">@Model.Plan.UntestedCount</div>
+                                            <div class="fw-bold text-secondary">@currentPlan.UntestedCount</div>
                                             <div class="text-muted small">Untested</div>
                                         </div>
                                     </div>
