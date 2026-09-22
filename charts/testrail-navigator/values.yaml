@@ -59,14 +59,14 @@ resources:
 
 livenessProbe:
   httpGet:
-    path: /
+    path: /healthz
     port: http
   initialDelaySeconds: 10
   periodSeconds: 30
 
 readinessProbe:
   httpGet:
-    path: /
+    path: /healthz
     port: http
   initialDelaySeconds: 5
   periodSeconds: 10
@@ -88,8 +88,12 @@ testrail:
   username: ""
   apiKey: ""
   allowWrites: false
+  # Both are required for application-wide administrator access.
   setupUsername: ""
   setupPassword: ""
+  # Optional; PAT requests are restricted to this HTTPS organization/collection.
+  azureDevOpsBaseUrl: ""
+  azureDevOpsPat: ""
   databasePassword: ""
 
 # Environment variables passed to the container.

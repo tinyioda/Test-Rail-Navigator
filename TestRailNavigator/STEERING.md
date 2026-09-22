@@ -57,6 +57,24 @@ TestRailNavigator/
 
 ## Configuration
 
+### Application Authentication
+
+All data pages and handlers require the single application's administrator identity, using
+ASP.NET Core cookie authentication and a fallback administrator policy. Setup is administrator-only.
+Login, Error, static assets, and the minimal `/healthz` endpoint are the only anonymous surfaces.
+
+Use existing `SetupUsername` / `SetupPassword` values in `testrail-settings.json`, or provision
+`TestRail:SetupUsername` / `TestRail:SetupPassword` through .NET configuration (environment variables
+use double underscores). Missing credentials must fail closed, never enable anonymous Setup.
+TestRail's shared integration role is not a substitute for authenticating the Navigator caller.
+
+### Azure DevOps Trust Boundary
+
+`AzureDevOpsBaseUrl` is an administrator-approved HTTPS organization or collection root.
+Both it and `AzureDevOpsPat` are required. Validate the origin, port, and organization/collection
+before attaching the PAT to any request, including child links. Do not follow redirects or infer
+a trusted destination from a user-supplied work-item URL.
+
 ### TestRail Settings
 
 Add the following to `appsettings.json` or use User Secrets for sensitive data:
@@ -107,6 +125,7 @@ dotnet user-secrets set "TestRail:ApiKey" "your-api-key"
 - Register services in `Program.cs` using typed `HttpClient`
 - Configuration via `IConfiguration` injection
 - Throw `InvalidOperationException` for missing required configuration
+- Render external Markdown only through `MarkdownRenderer`, which explicitly enables supported formatting and sanitizes the generated HTML. Do not enable generic attributes or use unsanitized output with `Html.Raw`.
 
 ## TestRail API Reference
 
@@ -155,7 +174,7 @@ Index (Projects)
 - [ ] Add search/filter functionality
 - [ ] Add test result details page
 - [ ] Add caching for API responses
-- [ ] Add authentication/authorization
+- [x] Add single-admin authentication/authorization
 - [ ] Add ability to update test results
 
 ## Dependencies

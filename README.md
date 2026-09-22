@@ -16,7 +16,8 @@ TestRail Navigator connects to your TestRail instance via its REST API and provi
 - **Project Dashboard** — Card-based project overview with active/completed status
 - **Milestone Management** — Create, edit, and organize milestones within projects
 - **Test Plan & Run Browsing** — Navigate the full hierarchy: Plans → Runs → Tests
-- **Role-Based Permissions** — Automatically resolves your TestRail role (Read-only → Tester → Designer → Lead → Admin) and gates UI actions accordingly
+- **Administrator Sign-In** — Every data page and handler requires the provisioned single-admin credentials
+- **TestRail Permissions** — Resolves the shared TestRail account's role (Read-only → Tester → Designer → Lead → Admin) and gates UI actions accordingly
 - **In-App Setup** — Configure your TestRail connection directly from the browser (no config files required)
 - **Console Log** — Development-mode console window for debugging API calls
 - **Create Projects** — Spin up new TestRail projects without leaving the app
@@ -58,41 +59,59 @@ Project
 ```bash
 git clone https://github.com/tinyioda/Test-Rail-Navigator.git
 cd Test-Rail-Navigator/TestRailNavigator
-dotnet run
+dotnet user-secrets set "TestRail:SetupUsername" "admin"
+dotnet user-secrets set "TestRail:SetupPassword" "<choose-a-strong-password>"
+dotnet run --environment Development
 ```
 
-Navigate to `https://localhost:{port}` — the app will redirect you to the **Setup** page on first launch to configure your TestRail connection.
+Navigate to the address printed by `dotnet run`. Sign in with the administrator credentials, then open **Setup** to configure the TestRail connection. HTTP is supported for local Development only; use HTTPS for deployed instances.
 
 ### Run with Docker
 
 ```bash
-docker build -t testrail-navigator .
-docker run -p 8080:8080 testrail-navigator
+docker build -f TestRailNavigator/Dockerfile -t testrail-navigator .
+docker run -p 127.0.0.1:8080:8080 \
+  -e TestRail__SetupUsername=admin \
+  -e TestRail__SetupPassword="<choose-a-strong-password>" \
+  testrail-navigator
 ```
 
-Open `http://localhost:8080` and configure your connection via the Setup page.
+For production, expose the container through a correctly configured HTTPS reverse proxy. Authentication cookies are always Secure outside Development. Provision writable data and Data Protection key storage for the non-root container user; set `DataProtection__KeysPath` to the persistent key directory. Do not expose an unconfigured instance or commit deployment credentials.
 
 ## Configuration
 
-TestRail Navigator supports two configuration methods:
+TestRail Navigator is a **single-admin application**, not a per-user TestRail sign-in service. Anyone holding the administrator credentials has access to the configured integrations and Setup.
 
-### Option 1: In-App Setup (Recommended)
+### Administrator Credentials
 
-Navigate to `/Setup` in the browser and enter:
+Existing `SetupUsername` and `SetupPassword` values in `testrail-settings.json` now protect the entire application. Alternatively, provision `TestRail:SetupUsername` and `TestRail:SetupPassword` through .NET configuration: user secrets in Development, or `TestRail__SetupUsername` and `TestRail__SetupPassword` environment variables in production. Configuration values take precedence over the settings file.
+
+Both credentials are required. If either is missing, sign-in is unavailable and all data pages remain protected; there is no anonymous Setup or account-registration endpoint. Administrator sessions expire after 30 minutes of inactivity. Failed sign-in attempts are limited per client IP. Use **Sign out** in the shared navigation to end a session.
+
+Restart after editing credentials directly in the settings file. Previously issued cookies are rejected when the effective credentials change. Use a shared, protected Data Protection key store if running multiple replicas.
+
+### In-App Connection Setup
+
+After signing in, navigate to `/Setup` and enter:
 - **Base URL** — Your TestRail instance URL (e.g., `https://yourcompany.testrail.io`)
 - **Username** — Your TestRail email
 - **API Key** — Your TestRail API key
 
 Settings are persisted to `testrail-settings.json` (gitignored by default).
 
-### Option 2: User Secrets (Development)
+### Azure DevOps
 
-```bash
-cd TestRailNavigator
-dotnet user-secrets set "TestRail:BaseUrl" "https://yourcompany.testrail.io"
-dotnet user-secrets set "TestRail:Username" "your-email@example.com"
-dotnet user-secrets set "TestRail:ApiKey" "your-api-key"
-```
+Configure both **Azure DevOps base URL** (`AzureDevOpsBaseUrl`) and a **PAT** (`AzureDevOpsPat`) with Work Items (Read) scope. The base must be the approved HTTPS organization or collection, without a project, work-item path, query, fragment, or embedded credentials. Examples:
+
+- `https://dev.azure.com/your-organization`
+- `https://your-organization.visualstudio.com`
+- `https://ado.example.com/tfs/DefaultCollection`
+
+Work-item links and hierarchy child links must match that origin, port, and organization/collection path. Other destinations are rejected before sending credentials. HTTP and redirects are not supported; use the server's canonical HTTPS URL.
+
+### Helm
+
+Supply `testrail.setupUsername` and `testrail.setupPassword` through a protected values file or deployment secret workflow. Azure DevOps generation additionally requires `testrail.azureDevOpsBaseUrl` and `testrail.azureDevOpsPat`. The chart mounts integration settings read-only: update those values through deployment configuration rather than saving Setup. Health probes use the anonymous `/healthz` endpoint, which does not query the integrations.
 
 > ⚠️ Never commit credentials. The `.gitignore` excludes `testrail-settings.json` and `launchSettings.json`.
 
@@ -102,15 +121,21 @@ dotnet user-secrets set "TestRail:ApiKey" "your-api-key"
 Test-Rail-Navigator/
 ├── .github/
 │   └── copilot-instructions.md     # Copilot coding guidelines
+├── CHANGELOG.md                    # Release and migration notes
 ├── TestRailNavigator/
-│   ├── Models/                     # 26 DTOs for TestRail API responses
+│   ├── Models/                     # DTOs for TestRail API responses
 │   ├── Services/
+│   │   ├── AdminAuthenticationService.cs # Single-admin authentication
+│   │   ├── AzureDevOpsUrlPolicy.cs # Approved destination validation
+│   │   ├── MarkdownRenderer.cs    # Sanitized Markdown rendering
 │   │   ├── TestRailClient.cs       # TestRail REST API client
 │   │   ├── SettingsService.cs      # Connection settings persistence
 │   │   ├── PermissionService.cs    # Role-based permission resolver
 │   │   ├── ConsoleLogService.cs    # In-app development console
 │   │   └── TestRailPermissions.cs  # Permission model & role mapping
 │   ├── Pages/
+│   │   ├── Login.cshtml            # Administrator sign-in
+│   │   ├── Logout.cshtml           # Antiforgery-protected sign-out
 │   │   ├── Index.cshtml            # Project dashboard
 │   │   ├── Project.cshtml          # Project detail (milestones + plans/runs)
 │   │   ├── Milestones.cshtml       # Milestone CRUD management
@@ -124,12 +149,13 @@ Test-Rail-Navigator/
 │   ├── Program.cs                  # DI & middleware configuration
 │   ├── Dockerfile                  # Multi-stage Docker build
 │   └── STEERING.md                 # Internal design & coding conventions
+├── TestRailNavigator.Tests/        # Isolated security regression coverage
 └── TestRailNavigator.slnx          # Solution file
 ```
 
 ## Permissions
 
-TestRail Navigator automatically detects your TestRail role and adjusts the UI:
+After administrator authentication, TestRail Navigator detects the **shared integration account's** TestRail role and adjusts the UI. These are backend capabilities, not separate roles for individual Navigator visitors:
 
 | Role | Read | Add Results | Manage Cases | Manage Runs/Plans | Admin |
 |------|:----:|:-----------:|:------------:|:-----------------:|:-----:|
@@ -140,6 +166,14 @@ TestRail Navigator automatically detects your TestRail role and adjusts the UI:
 | Admin | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 If the current user can't be resolved, the app defaults to **read-only** mode.
+
+## Testing
+
+```bash
+dotnet test TestRailNavigator.slnx
+```
+
+The security regression suite uses isolated temporary settings, in-process hosting, and fake HTTP handlers. It does not use real TestRail or Azure DevOps credentials.
 
 ## TestRail API
 
@@ -166,7 +200,7 @@ Key endpoints used:
 - [ ] Search and filter functionality
 - [ ] Test result details page
 - [ ] API response caching
-- [ ] Authentication / authorization layer
+- [x] Single-admin authentication / authorization layer
 - [ ] Ability to update test results from the UI
 
 ## Contributing
@@ -181,3 +215,15 @@ Key endpoints used:
 ## License
 
 This project is open source. See the repository for license details.
+
+## Breaking Changes
+
+> Quick-reference for compatibility. See [CHANGELOG.md](./CHANGELOG.md) for full details.
+
+| Version | Change | Migration Path |
+|---------|--------|----------------|
+| Unreleased | All data pages and handlers require single-admin sign-in, including read-only access. | Provision both existing Setup credentials or their `TestRail:` configuration overrides before upgrading. |
+| Unreleased | Production authentication cookies require HTTPS. | Configure TLS and correctly forward the request scheme through any trusted reverse proxy. |
+| Unreleased | Azure DevOps requires an approved HTTPS base URL as well as a PAT; HTTP and redirects are rejected. | Set `AzureDevOpsBaseUrl` in Setup or `testrail.azureDevOpsBaseUrl` in Helm, matching the origin, port, and case-sensitive organization/collection path of work-item links. |
+| Unreleased | Markdown generic attributes and unapproved advanced extensions are no longer interpreted. | Use supported headings, lists, tables, links, images, fenced code, strikethrough, and task lists instead of custom attributes. |
+| Unreleased | Data pages are no longer suitable for anonymous health probes. | Point monitoring at `/healthz`; the bundled Helm defaults already use it. |

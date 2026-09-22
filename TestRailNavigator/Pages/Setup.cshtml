@@ -13,36 +13,6 @@
 
 <div class="row justify-content-center">
     <div class="col-md-6">
-        @if (Model.RequiresLogin)
-        {
-            <div class="card">
-                <div class="card-header">
-                    <h4 class="mb-0"><i class="bi bi-lock"></i> Setup Login</h4>
-                </div>
-                <div class="card-body">
-                    <p class="text-muted">Enter the Setup credentials to continue.</p>
-
-                    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
-                    {
-                        <div class="alert alert-danger">@Model.ErrorMessage</div>
-                    }
-
-                    <form method="post" asp-page-handler="Login">
-                        <div class="mb-3">
-                            <label for="LoginUsername" class="form-label">Username</label>
-                            <input asp-for="LoginUsername" class="form-control" required autofocus />
-                        </div>
-                        <div class="mb-3">
-                            <label for="LoginPassword" class="form-label">Password</label>
-                            <input asp-for="LoginPassword" type="password" class="form-control" required />
-                        </div>
-                        <button type="submit" class="btn btn-primary w-100">Log In</button>
-                    </form>
-                </div>
-            </div>
-        }
-        else
-        {
             <div class="card">
                 <div class="card-header">
                     <h4 class="mb-0">Connect to TestRail</h4>
@@ -52,7 +22,7 @@
 
                     @if (!string.IsNullOrEmpty(Model.ErrorMessage))
                     {
-                        <div class="alert alert-danger">@Model.ErrorMessage</div>
+                        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
                     }
 
                     <form method="post">
@@ -79,10 +49,22 @@
                         <hr />
 
                         <div class="mb-3">
+                            <label asp-for="Settings.AzureDevOpsBaseUrl" class="form-label">Azure DevOps base URL</label>
+                            <input asp-for="Settings.AzureDevOpsBaseUrl" type="url" class="form-control"
+                                   placeholder="https://dev.azure.com/your-organization" aria-describedby="ado-base-help" />
+                            <div id="ado-base-help" class="form-text">
+                                Approved HTTPS organization or collection, without a project or work-item path.
+                                For Azure DevOps Server, include the collection, for example
+                                <code>https://ado.example.com/tfs/DefaultCollection</code>.
+                                Only links within this base may receive the PAT; redirects are not followed.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
                             <label asp-for="Settings.AzureDevOpsPat" class="form-label">Azure DevOps PAT</label>
                             <input asp-for="Settings.AzureDevOpsPat" type="password" class="form-control" autocomplete="new-password" />
                             <div class="form-text">
-                                Optional. Personal access token with <em>Work Items (Read)</em> scope,
+                                Optional. Requires an approved base URL above. Use a token with <em>Work Items (Read)</em> scope,
                                 used by the <a asp-page="/GenerateCases">Generate Cases</a> page.
                                 Leave blank to keep the existing value.
                             </div>
@@ -170,6 +152,5 @@
                     </form>
                 </div>
             </div>
-        }
     </div>
 </div>

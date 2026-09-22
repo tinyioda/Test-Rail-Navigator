@@ -1,19 +1,25 @@
+using Ganss.Xss;
 using Markdig;
+using Markdig.Extensions.EmphasisExtras;
 
 namespace TestRailNavigator.Services;
 
 /// <summary>
 /// Renders TestRail free-form text (comments, descriptions) — which is stored in
-/// Markdown — to safe HTML for display. Uses the same advanced extensions TestRail
-/// supports (GFM tables, fenced code, autolinks, strikethrough, task lists).
+/// Markdown — to sanitized HTML using explicitly enabled formatting extensions.
 /// </summary>
 public static class MarkdownRenderer
 {
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
-        .UseAdvancedExtensions()
+        .UsePipeTables()
+        .UseAutoLinks()
+        .UseEmphasisExtras(EmphasisExtraOptions.Strikethrough)
+        .UseTaskLists()
         .UseSoftlineBreakAsHardlineBreak()
-        .DisableHtml() // strip raw HTML to avoid XSS from user-entered comments
+        .DisableHtml()
         .Build();
+
+    private static readonly HtmlSanitizer Sanitizer = CreateSanitizer();
 
     /// <summary>
     /// Converts a Markdown string to an HTML fragment. Returns an empty string
@@ -28,6 +34,28 @@ public static class MarkdownRenderer
             return string.Empty;
         }
 
-        return Markdown.ToHtml(markdown, Pipeline);
+        return Sanitizer.Sanitize(Markdown.ToHtml(markdown, Pipeline));
+    }
+
+    /// <summary>Restricts rendered content to Markdown formatting and non-executable links.</summary>
+    private static HtmlSanitizer CreateSanitizer()
+    {
+        var sanitizer = new HtmlSanitizer();
+        sanitizer.AllowedTags.Clear();
+        sanitizer.AllowedTags.UnionWith(
+        [
+            "a", "p", "br", "em", "strong", "del", "code", "pre", "blockquote",
+            "ol", "ul", "li", "hr", "h1", "h2", "h3", "h4", "h5", "h6",
+            "table", "thead", "tbody", "tr", "th", "td", "img", "input"
+        ]);
+        sanitizer.AllowedAttributes.Clear();
+        sanitizer.AllowedAttributes.UnionWith(
+        [
+            "href", "title", "src", "alt", "start", "colspan", "rowspan",
+            "type", "checked", "disabled"
+        ]);
+        sanitizer.AllowedSchemes.Clear();
+        sanitizer.AllowedSchemes.UnionWith(["https", "http", "mailto"]);
+        return sanitizer;
     }
 }

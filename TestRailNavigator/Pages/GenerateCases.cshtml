@@ -35,8 +35,8 @@
 @if (!Model.AzureDevOpsConfigured)
 {
     <div class="alert alert-warning">
-        An Azure DevOps personal access token is not configured.
-        Add one on the <a asp-page="/Setup">Setup</a> page before generating cases.
+        An approved Azure DevOps base URL and personal access token are required.
+        Configure both on the <a asp-page="/Setup">Setup</a> page before generating cases.
     </div>
 }
 
