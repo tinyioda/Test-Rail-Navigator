@@ -1,5 +1,4 @@
-using System.Security.Cryptography;
-using System.Text;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using TestRailNavigator.Services;
@@ -8,12 +7,11 @@ namespace TestRailNavigator.Pages;
 
 /// <summary>
 /// Page model for the Setup page to configure TestRail connection.
-/// Protected by an optional username/password defined in settings.
+/// Restricted to the authenticated application administrator.
 /// </summary>
+[Authorize(Policy = AdminAuthenticationService.AdministratorPolicy)]
 public class SetupModel : PageModel
 {
-    private const string SessionKey = "SetupAuthenticated";
-
     private readonly SettingsService _settingsService;
     private readonly PermissionService _permissionService;
 
@@ -40,34 +38,10 @@ public class SetupModel : PageModel
     public string? ErrorMessage { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the login gate should be shown.
-    /// </summary>
-    public bool RequiresLogin { get; set; }
-
-    /// <summary>
-    /// Gets or sets the login username entered by the user.
-    /// </summary>
-    [BindProperty]
-    public string? LoginUsername { get; set; }
-
-    /// <summary>
-    /// Gets or sets the login password entered by the user.
-    /// </summary>
-    [BindProperty]
-    public string? LoginPassword { get; set; }
-
-    /// <summary>
     /// Handles GET requests to load existing settings.
-    /// Shows a login form when Setup credentials are configured and the session is not authenticated.
     /// </summary>
     public async Task OnGetAsync()
     {
-        if (await IsLoginRequiredAsync())
-        {
-            RequiresLogin = true;
-            return;
-        }
-
         var existing = await _settingsService.GetSettingsAsync();
         if (existing is not null)
         {
@@ -76,56 +50,11 @@ public class SetupModel : PageModel
     }
 
     /// <summary>
-    /// Handles the login form POST.
-    /// </summary>
-    public async Task<IActionResult> OnPostLoginAsync()
-    {
-        var settings = await _settingsService.GetSettingsAsync();
-        if (settings is null || !IsProtected(settings))
-        {
-            return RedirectToPage();
-        }
-
-        if (FixedTimeEquals(LoginUsername, settings.SetupUsername)
-            && FixedTimeEquals(LoginPassword, settings.SetupPassword))
-        {
-            HttpContext.Session.SetString(SessionKey, "true");
-            return RedirectToPage();
-        }
-
-        RequiresLogin = true;
-        ErrorMessage = "Invalid username or password.";
-        return Page();
-    }
-
-    /// <summary>
-    /// Performs a constant-time comparison between two strings to protect against timing attacks.
-    /// </summary>
-    private static bool FixedTimeEquals(string? a, string? b)
-    {
-        if (a is null || b is null)
-        {
-            return false;
-        }
-
-        var ab = Encoding.UTF8.GetBytes(a);
-        var bb = Encoding.UTF8.GetBytes(b);
-        return ab.Length == bb.Length && CryptographicOperations.FixedTimeEquals(ab, bb);
-    }
-
-    /// <summary>
     /// Handles POST requests to save settings.
     /// </summary>
     /// <returns>Redirect to Index on success, or the page with errors.</returns>
     public async Task<IActionResult> OnPostAsync()
     {
-        if (await IsLoginRequiredAsync())
-        {
-            RequiresLogin = true;
-            ErrorMessage = "Please log in first.";
-            return Page();
-        }
-
         if (string.IsNullOrWhiteSpace(Settings.BaseUrl))
         {
             ErrorMessage = "TestRail URL is required.";
@@ -146,12 +75,11 @@ public class SetupModel : PageModel
 
         // Preserve existing Setup credentials when saving — the login fields are not on the settings form.
         var existing = await _settingsService.GetSettingsAsync();
+        Settings.SetupUsername = existing?.SetupUsername ?? string.Empty;
+        Settings.SetupPassword = existing?.SetupPassword ?? string.Empty;
+        Settings.DatabasePassword = existing?.DatabasePassword ?? string.Empty;
         if (existing is not null)
         {
-            Settings.SetupUsername = existing.SetupUsername;
-            Settings.SetupPassword = existing.SetupPassword;
-            Settings.DatabasePassword = existing.DatabasePassword;
-
             // Preserve the existing Azure DevOps PAT when the user submits an empty value,
             // so that re-saving the form without re-typing the token does not clear it.
             if (string.IsNullOrWhiteSpace(Settings.AzureDevOpsPat))
@@ -172,6 +100,14 @@ public class SetupModel : PageModel
             }
         }
 
+        if ((!string.IsNullOrWhiteSpace(Settings.AzureDevOpsBaseUrl)
+                || !string.IsNullOrWhiteSpace(Settings.AzureDevOpsPat))
+            && !AzureDevOpsUrlPolicy.TryGetBaseUri(Settings.AzureDevOpsBaseUrl, out _))
+        {
+            ErrorMessage = "Azure DevOps requires an approved HTTPS organization or collection base URL, without a query, fragment, or embedded credentials.";
+            return Page();
+        }
+
         try
         {
             await _settingsService.SaveSettingsAsync(Settings);
@@ -183,28 +119,5 @@ public class SetupModel : PageModel
             ErrorMessage = $"Failed to save settings: {ex.Message}";
             return Page();
         }
-    }
-
-    /// <summary>
-    /// Determines whether the Setup page is password-protected.
-    /// </summary>
-    private static bool IsProtected(TestRailSettings settings)
-    {
-        return !string.IsNullOrWhiteSpace(settings.SetupUsername)
-            && !string.IsNullOrWhiteSpace(settings.SetupPassword);
-    }
-
-    /// <summary>
-    /// Checks whether the current request requires login.
-    /// </summary>
-    private async Task<bool> IsLoginRequiredAsync()
-    {
-        var settings = await _settingsService.GetSettingsAsync();
-        if (settings is null || !IsProtected(settings))
-        {
-            return false;
-        }
-
-        return HttpContext.Session.GetString(SessionKey) != "true";
     }
 }

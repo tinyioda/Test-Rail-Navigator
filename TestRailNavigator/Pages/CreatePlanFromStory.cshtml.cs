@@ -53,7 +53,7 @@ public class CreatePlanFromStoryModel : PageModel
     /// <summary>Gets or sets a value indicating whether write operations are enabled.</summary>
     public bool WritesEnabled { get; set; }
 
-    /// <summary>Gets a value indicating whether an AzDO PAT is configured.</summary>
+    /// <summary>Gets a value indicating whether an approved AzDO base URL and PAT are configured.</summary>
     public bool AzureDevOpsConfigured { get; private set; }
 
     /// <summary>Gets or sets the list of projects for the project picker (alphabetical).</summary>
@@ -115,7 +115,7 @@ public class CreatePlanFromStoryModel : PageModel
 
         if (!AzureDevOpsConfigured)
         {
-            ErrorMessage = "An Azure DevOps PAT must be configured on the Setup page before loading a story.";
+            ErrorMessage = "An approved Azure DevOps base URL and PAT must be configured on the Setup page before loading a story.";
             return Page();
         }
 
@@ -384,8 +384,7 @@ public class CreatePlanFromStoryModel : PageModel
     {
         Permissions = await _permissionService.GetPermissionsAsync();
         WritesEnabled = await _settingsService.AreWritesEnabledAsync();
-        var settings = await _settingsService.GetSettingsAsync();
-        AzureDevOpsConfigured = !string.IsNullOrWhiteSpace(settings?.AzureDevOpsPat);
+        AzureDevOpsConfigured = await _azureDevOps.IsConfiguredAsync();
 
         try
         {

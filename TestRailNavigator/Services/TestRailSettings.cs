@@ -27,14 +27,14 @@ public class TestRailSettings
     public bool AllowWrites { get; set; }
 
     /// <summary>
-    /// Gets or sets the username required to access the Setup page.
-    /// When empty the Setup page is unprotected.
+    /// Gets or sets the administrator username required to access the application.
+    /// Access is disabled when either administrator credential is missing.
     /// </summary>
     public string SetupUsername { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the password required to access the Setup page.
-    /// When empty the Setup page is unprotected.
+    /// Gets or sets the administrator password required to access the application.
+    /// Access is disabled when either administrator credential is missing.
     /// </summary>
     public string SetupPassword { get; set; } = string.Empty;
 
@@ -47,6 +47,12 @@ public class TestRailSettings
     /// Gets or sets the encryption password for the local SQLite database.
     /// </summary>
     public string DatabasePassword { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the approved HTTPS Azure DevOps organization or collection URL.
+    /// Work-item links outside this base are rejected before credentials are sent.
+    /// </summary>
+    public string AzureDevOpsBaseUrl { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the Azure DevOps personal access token (PAT) used to read work items

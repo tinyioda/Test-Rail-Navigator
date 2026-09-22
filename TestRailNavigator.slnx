@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="TestRailNavigator.Tests/TestRailNavigator.Tests.csproj" />
   <Project Path="TestRailNavigator/TestRailNavigator.csproj" />
 </Solution>

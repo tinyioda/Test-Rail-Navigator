@@ -14,42 +14,16 @@ public class AzureDevOpsService : IIssueTrackerClient
 {
     private const string ApiVersion = "7.1";
 
-    // Hosted Azure DevOps: https://dev.azure.com/{org}/{project}/_workitems/edit/{id}
-    private static readonly Regex DevAzureUrlRegex = new(
-        @"^(?<base>https?://dev\.azure\.com/(?<org>[^/]+))/(?<project>[^/]+)/_workitems/(?:edit|view)/(?<id>\d+)",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    // Legacy: https://{org}.visualstudio.com/{project}/_workitems/edit/{id}
-    private static readonly Regex VisualStudioUrlRegex = new(
-        @"^(?<base>https?://(?<org>[^.]+)\.visualstudio\.com)/(?<project>[^/]+)/_workitems/(?:edit|view)/(?<id>\d+)",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    // On-prem TFS / Azure DevOps Server: https://{host}[:port]/[path/]{collection}/{project}/_workitems/edit/{id}
-    // The {base} group captures everything up to but not including the project segment.
-    private static readonly Regex TfsUrlRegex = new(
-        @"^(?<base>https?://[^/]+(?:/[^/]+)*)/(?<project>[^/]+)/_workitems/(?:edit|view)/(?<id>\d+)",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    // API URLs for the same three shapes.
-    private static readonly Regex DevAzureApiRegex = new(
-        @"^(?<base>https?://dev\.azure\.com/(?<org>[^/]+))/(?<project>[^/]+)/_apis/wit/workItems/(?<id>\d+)",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex GenericApiRegex = new(
-        @"^(?<base>https?://[^/]+(?:/[^/]+)*?)/(?:(?<project>[^/]+)/)?_apis/wit/workItems/(?<id>\d+)",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
     private static readonly Regex HtmlTagRegex = new("<[^>]+>", RegexOptions.Compiled);
 
     private readonly HttpClient _httpClient;
     private readonly SettingsService _settingsService;
-    private readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AzureDevOpsService"/> class.
     /// </summary>
-    /// <param name="httpClient">The HTTP client used for outbound REST calls.</param>
-    /// <param name="settingsService">The settings service providing the configured PAT.</param>
+    /// <param name="httpClient">The HTTP client used for outbound REST calls, with automatic redirects disabled.</param>
+    /// <param name="settingsService">The settings service providing the approved base URL and PAT.</param>
     public AzureDevOpsService(HttpClient httpClient, SettingsService settingsService)
     {
         _httpClient = httpClient;
@@ -68,7 +42,8 @@ public class AzureDevOpsService : IIssueTrackerClient
     public async Task<bool> IsConfiguredAsync()
     {
         var settings = await _settingsService.GetSettingsAsync();
-        return !string.IsNullOrWhiteSpace(settings?.AzureDevOpsPat);
+        return !string.IsNullOrWhiteSpace(settings?.AzureDevOpsPat) &&
+            AzureDevOpsUrlPolicy.TryGetBaseUri(settings.AzureDevOpsBaseUrl, out _);
     }
 
     /// <summary>
@@ -80,59 +55,9 @@ public class AzureDevOpsService : IIssueTrackerClient
     /// <param name="organization">For hosted AzDO this is the org; for on-prem it's the collection segment.</param>
     /// <param name="project">The team project name.</param>
     /// <param name="id">The numeric work item id.</param>
+    /// <remarks>Recognizes URL syntax only. Requests are separately validated against the configured approved base URL.</remarks>
     public static bool TryParseWorkItemUrl(string url, out string organization, out string project, out int id)
-        => TryParseCore(url, out _, out organization, out project, out id);
-
-    private static bool TryParseCore(
-        string url,
-        out string baseUrl,
-        out string organization,
-        out string project,
-        out int id)
-    {
-        baseUrl = string.Empty;
-        organization = string.Empty;
-        project = string.Empty;
-        id = 0;
-
-        if (string.IsNullOrWhiteSpace(url))
-        {
-            return false;
-        }
-
-        var trimmed = url.Trim();
-
-        // Try hosted AzDO first, then legacy visualstudio.com, then generic (TFS on-prem) as the
-        // broad fallback. The hosted regexes are strict enough that they don't double-match here.
-        var match = DevAzureUrlRegex.Match(trimmed);
-        if (!match.Success) match = VisualStudioUrlRegex.Match(trimmed);
-        if (!match.Success) match = DevAzureApiRegex.Match(trimmed);
-        if (!match.Success) match = TfsUrlRegex.Match(trimmed);
-
-        if (!match.Success || !int.TryParse(match.Groups["id"].Value, out id))
-        {
-            return false;
-        }
-
-        baseUrl = match.Groups["base"].Value.TrimEnd('/');
-        project = Uri.UnescapeDataString(match.Groups["project"].Value);
-
-        // `organization` is informational for consumers; for TFS we surface the last path segment
-        // of the base URL (typically the collection name, e.g. "DefaultCollection").
-        if (match.Groups["org"].Success)
-        {
-            organization = Uri.UnescapeDataString(match.Groups["org"].Value);
-        }
-        else
-        {
-            var lastSlash = baseUrl.LastIndexOf('/');
-            organization = lastSlash >= 0 && lastSlash < baseUrl.Length - 1
-                ? Uri.UnescapeDataString(baseUrl[(lastSlash + 1)..])
-                : string.Empty;
-        }
-
-        return true;
-    }
+        => AzureDevOpsUrlPolicy.TryParseWorkItemUrl(url, out organization, out project, out id);
 
     /// <summary>
     /// Backwards-compatible helper used by the simple <c>GenerateCases</c> page.
@@ -157,13 +82,10 @@ public class AzureDevOpsService : IIssueTrackerClient
     /// <inheritdoc />
     public async Task<IssueTrackerItem?> GetItemAsync(string url)
     {
-        if (!TryParseCore(url, out var baseUrl, out _, out var project, out var id))
-        {
-            return null;
-        }
-
-        var root = await FetchWorkItemJsonAsync(baseUrl, project, id);
-        return BuildItem(root, baseUrl, project, id);
+        var (baseUri, pat) = await GetConfigurationAsync();
+        var (project, id) = AzureDevOpsUrlPolicy.ParseWorkItemUrl(baseUri, url);
+        var root = await FetchWorkItemJsonAsync(baseUri, project, id, pat);
+        return BuildItem(root, baseUri, project, id);
     }
 
     /// <inheritdoc />
@@ -174,22 +96,17 @@ public class AzureDevOpsService : IIssueTrackerClient
             return [];
         }
 
-        var results = new List<IssueTrackerItem>(item.ChildUrls.Count);
-        foreach (var childUrl in item.ChildUrls)
+        var (baseUri, pat) = await GetConfigurationAsync();
+        var (parentProject, _) = AzureDevOpsUrlPolicy.ParseWorkItemUrl(baseUri, item.SourceUrl);
+        var children = item.ChildUrls
+            .Select(url => AzureDevOpsUrlPolicy.ParseWorkItemUrl(baseUri, url, parentProject))
+            .ToArray();
+
+        var results = new List<IssueTrackerItem>(children.Length);
+        foreach (var (project, id) in children)
         {
-            try
-            {
-                var child = await GetItemAsync(childUrl);
-                if (child is not null)
-                {
-                    results.Add(child);
-                }
-            }
-            catch
-            {
-                // Swallow per-child failures so one broken link doesn't break the entire walk.
-                // The orchestrator surfaces a warning when the expected hierarchy is incomplete.
-            }
+            var root = await FetchWorkItemJsonAsync(baseUri, project, id, pat);
+            results.Add(BuildItem(root, baseUri, project, id));
         }
 
         return results;
@@ -216,10 +133,16 @@ public class AzureDevOpsService : IIssueTrackerClient
         return text.Trim();
     }
 
-    private async Task<JsonElement> FetchWorkItemJsonAsync(string baseUrl, string project, int id)
+    private async Task<(Uri BaseUri, string Pat)> GetConfigurationAsync()
     {
         var settings = await _settingsService.GetSettingsAsync()
             ?? throw new InvalidOperationException("TestRail settings not configured");
+
+        if (!AzureDevOpsUrlPolicy.TryGetBaseUri(settings.AzureDevOpsBaseUrl, out var baseUri))
+        {
+            throw new InvalidOperationException(
+                "Azure DevOps base URL is not configured or is invalid. Set an approved HTTPS organization or collection URL on the Setup page.");
+        }
 
         if (string.IsNullOrWhiteSpace(settings.AzureDevOpsPat))
         {
@@ -227,16 +150,29 @@ public class AzureDevOpsService : IIssueTrackerClient
                 "Azure DevOps PAT is not configured. Add it on the Setup page to generate cases from Azure DevOps links.");
         }
 
+        return (baseUri, settings.AzureDevOpsPat);
+    }
+
+    private async Task<JsonElement> FetchWorkItemJsonAsync(Uri baseUri, string project, int id, string pat)
+    {
         // $expand=relations gives us hierarchy links for child discovery.
         var requestUrl =
-            $"{baseUrl}/{Uri.EscapeDataString(project)}" +
-            $"/_apis/wit/workitems/{id}?$expand=relations&api-version={ApiVersion}";
+            $"{baseUri.AbsoluteUri.TrimEnd('/')}/{Uri.EscapeDataString(project)}" +
+            $"/_apis/wit/workitems/{id.ToString(System.Globalization.CultureInfo.InvariantCulture)}?$expand=relations&api-version={ApiVersion}";
 
         using var request = new HttpRequestMessage(HttpMethod.Get, requestUrl);
-        var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($":{settings.AzureDevOpsPat}"));
+        var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($":{pat}"));
         request.Headers.Authorization = new AuthenticationHeaderValue("Basic", credentials);
 
         using var response = await _httpClient.SendAsync(request);
+        if ((int)response.StatusCode is >= 300 and < 400)
+        {
+            throw new HttpRequestException(
+                "Azure DevOps returned a redirect. Redirects are not allowed for authenticated Azure DevOps requests.",
+                null,
+                response.StatusCode);
+        }
+
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync();
@@ -244,12 +180,14 @@ public class AzureDevOpsService : IIssueTrackerClient
             try
             {
                 using var errorDoc = JsonDocument.Parse(body);
-                if (errorDoc.RootElement.TryGetProperty("message", out var msg))
+                if (errorDoc.RootElement.ValueKind == JsonValueKind.Object &&
+                    errorDoc.RootElement.TryGetProperty("message", out var msg) &&
+                    msg.ValueKind == JsonValueKind.String)
                 {
                     errorMessage = msg.GetString();
                 }
             }
-            catch
+            catch (JsonException)
             {
                 // Response body was not JSON.
             }
@@ -264,18 +202,18 @@ public class AzureDevOpsService : IIssueTrackerClient
         return doc.RootElement.Clone();
     }
 
-    private static IssueTrackerItem BuildItem(JsonElement root, string baseUrl, string project, int id)
-    {
-        var webUrl =
-            $"{baseUrl}/{Uri.EscapeDataString(project)}" +
-            $"/_workitems/edit/{id}";
+    private static string BuildWebUrl(Uri baseUri, string project, int id) =>
+        $"{baseUri.AbsoluteUri.TrimEnd('/')}/{Uri.EscapeDataString(project)}" +
+        $"/_workitems/edit/{id.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
 
+    private static IssueTrackerItem BuildItem(JsonElement root, Uri baseUri, string project, int id)
+    {
         var item = new IssueTrackerItem
         {
             Id = id.ToString(System.Globalization.CultureInfo.InvariantCulture),
             NumericId = id,
             Reference = $"AB#{id}",
-            SourceUrl = webUrl
+            SourceUrl = BuildWebUrl(baseUri, project, id)
         };
 
         if (root.TryGetProperty("fields", out var fields) && fields.ValueKind == JsonValueKind.Object)
@@ -299,60 +237,12 @@ public class AzureDevOpsService : IIssueTrackerClient
                 }
 
                 var apiUrl = relation.TryGetProperty("url", out var u) ? u.GetString() : null;
-                if (string.IsNullOrWhiteSpace(apiUrl)) continue;
-
-                if (TryConvertApiUrlToWebUrl(apiUrl, baseUrl, project, out var webChildUrl))
-                {
-                    item.ChildUrls.Add(webChildUrl);
-                }
+                var (childProject, childId) = AzureDevOpsUrlPolicy.ParseWorkItemUrl(baseUri, apiUrl, project);
+                item.ChildUrls.Add(BuildWebUrl(baseUri, childProject, childId));
             }
         }
 
         return item;
-    }
-
-    private static bool TryConvertApiUrlToWebUrl(string apiUrl, string parentBaseUrl, string fallbackProject, out string webUrl)
-    {
-        webUrl = string.Empty;
-
-        // Hosted dev.azure.com API URL: full base + project are present.
-        var match = DevAzureApiRegex.Match(apiUrl);
-        if (match.Success)
-        {
-            var childBase = match.Groups["base"].Value.TrimEnd('/');
-            var proj = Uri.UnescapeDataString(match.Groups["project"].Value);
-            webUrl = $"{childBase}/{Uri.EscapeDataString(proj)}/_workitems/edit/{match.Groups["id"].Value}";
-            return true;
-        }
-
-        // Generic (hosted org-scoped relation URL or TFS on-prem). Relation URLs on TFS are
-        // usually of the form {base}/_apis/wit/workItems/{id} with no project segment — fall back
-        // to the parent's project and base so the web URL is reachable.
-        var generic = GenericApiRegex.Match(apiUrl);
-        if (generic.Success)
-        {
-            var childBase = generic.Groups["base"].Value.TrimEnd('/');
-            var proj = generic.Groups["project"].Success && !string.IsNullOrEmpty(generic.Groups["project"].Value)
-                ? Uri.UnescapeDataString(generic.Groups["project"].Value)
-                : fallbackProject;
-
-            // If the generic match dropped back to just the host (e.g. TFS relation URL that ends
-            // at `/_apis/...` right after the collection), prefer the parent's known base URL
-            // because it may include additional path segments (`/tfs/DefaultCollection`) that
-            // the non-greedy regex trimmed off.
-            if (!string.IsNullOrEmpty(parentBaseUrl) &&
-                Uri.TryCreate(parentBaseUrl, UriKind.Absolute, out var parentUri) &&
-                Uri.TryCreate(childBase, UriKind.Absolute, out var childUri) &&
-                string.Equals(parentUri.Host, childUri.Host, StringComparison.OrdinalIgnoreCase))
-            {
-                childBase = parentBaseUrl.TrimEnd('/');
-            }
-
-            webUrl = $"{childBase}/{Uri.EscapeDataString(proj)}/_workitems/edit/{generic.Groups["id"].Value}";
-            return true;
-        }
-
-        return false;
     }
 
     private static IssueTrackerItemKind ClassifyKind(string rawType)

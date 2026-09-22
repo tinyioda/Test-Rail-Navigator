@@ -1,5 +1,8 @@
 ﻿@inject TestRailNavigator.Services.SettingsService SettingsService
 <!DOCTYPE html>
+@{
+    var isAuthenticated = User.Identity?.IsAuthenticated == true;
+}
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -18,6 +21,8 @@
                 <a class="navbar-brand fw-bold" asp-area="" asp-page="/Index">
                     <span style="color: var(--brand-teal);">Test</span>RailNavigator
                 </a>
+                @if (isAuthenticated)
+                {
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
@@ -42,7 +47,7 @@
                     </ul>
                     <ul class="navbar-nav align-items-center">
                         <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2" asp-area="" asp-page="/Setup">
+                            <a class="nav-link d-flex align-items-center gap-2" asp-area="" asp-page="/Setup" aria-label="Setup">
                                 <i class="bi bi-gear"></i>
                                 @if (await SettingsService.IsConfiguredAsync())
                                 {
@@ -57,8 +62,14 @@
                                 }
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <form method="post" asp-page="/Logout">
+                                <button type="submit" class="nav-link">Sign out</button>
+                            </form>
+                        </li>
                     </ul>
                 </div>
+                }
             </div>
         </nav>
     </header>
@@ -74,12 +85,13 @@
         </div>
     </footer>
 
-    @{
-        var consoleSettings = await SettingsService.GetSettingsAsync();
-    }
-    @if (consoleSettings?.ShowConsole == true)
+    @if (isAuthenticated)
     {
-        @await Html.PartialAsync("_ConsoleWindow")
+        var consoleSettings = await SettingsService.GetSettingsAsync();
+        if (consoleSettings?.ShowConsole == true)
+        {
+            @await Html.PartialAsync("_ConsoleWindow")
+        }
     }
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
