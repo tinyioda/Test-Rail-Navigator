@@ -32,6 +32,7 @@ All notable changes to this project are documented here using
 
 ### Removed
 
+- Azure DevOps and Jira integrations entirely: the `/GenerateCases`, `/GenerateHierarchy`, and `/CreatePlanFromStory` pages, the `AzureDevOpsService`/`IIssueTrackerClient`/`HierarchyGenerator`/`AcceptanceCriteriaParser` services, the `AzureDevOpsBaseUrl`/`AzureDevOpsPat`/`JiraBaseUrl`/`JiraEmail`/`JiraApiToken` settings, the `AzureDevOps`/`Jira` sections of `appsettings.json`, the Setup page's Azure DevOps/Jira form sections, and all related tests. Use third-party MCPs or AI skills for work-item/issue-tracker integration instead.
 - The AI case-enrichment feature ("Enrich with AI" on Generate Cases, the OpenAI-compatible endpoint configuration, and all related code/tests). Use third-party MCPs or AI skills for this instead.
 - The shared `SetupUsername`/`SetupPassword` administrator credential. There is no separate app-level login anymore; each user signs in with their own TestRail account.
 

@@ -78,23 +78,9 @@ Use a shared, protected Data Protection key store if running multiple replicas.
 - **Username** — A TestRail account email (used as the fallback/service-account identity for unauthenticated contexts)
 - **API Key** — That account's TestRail API key
 
-These three values are written to the `TestRail` section of `appsettings.json` at runtime. Azure DevOps and Jira credentials (both optional) are written to their own `AzureDevOps`/`Jira` sections of `appsettings.json` the same way. All remaining Setup fields (write mode, console) continue to persist to `testrail-settings.json` (gitignored by default).
+These three values are written to the `TestRail` section of `appsettings.json` at runtime. All remaining Setup fields (write mode, console) continue to persist to `testrail-settings.json` (gitignored by default).
 
 **`/Setup` is only reachable until the connection is configured.** Before `BaseUrl`/`Username`/`ApiKey` are set, every other page redirects there, and sign-in is unavailable. Once set, `/Setup` itself redirects to the dashboard for everyone — to change the connection afterward, edit the `TestRail` section of `appsettings.json` directly (or clear it to reopen Setup).
-
-### Azure DevOps (optional)
-
-Azure DevOps is optional. Leave both fields blank to skip it — AzDO-dependent features (Generate Cases, Generate Hierarchy, New Plan from Story) stay disabled in the UI until both are set. To enable it, configure both **Azure DevOps base URL** (`AzureDevOpsBaseUrl`) and a **PAT** (`AzureDevOpsPat`) with Work Items (Read) scope. The base must be the approved HTTPS organization or collection, without a project, work-item path, query, fragment, or embedded credentials. Examples:
-
-- `https://dev.azure.com/your-organization`
-- `https://your-organization.visualstudio.com`
-- `https://ado.example.com/tfs/DefaultCollection`
-
-Work-item links and hierarchy child links must match that origin, port, and organization/collection path. Other destinations are rejected before sending credentials. HTTP and redirects are not supported; use the server's canonical HTTPS URL.
-
-### Jira (optional)
-
-Jira credentials (`JiraBaseUrl`, `JiraEmail`, `JiraApiToken`) are optional and not yet used by any feature in the app — they're accepted on the Setup page and persisted to `appsettings.json` so they're ready once a Jira-backed tracker ships.
 
 ### IIS Deployment
 
@@ -104,7 +90,7 @@ Use the included `deploy.ps1` script to publish and deploy to an IIS site:
 .\deploy.ps1
 ```
 
-This publishes the app in Release mode, takes the site offline, mirrors the output to `C:\inetpub\TestRailNavigator` (preserving `testrail-settings.json`, the SQLite database, and `logs\`), recycles the app pool, and performs a warm-up request. Configure the IIS site/app pool, then visit `/Setup` after deployment to configure the TestRail connection (and optional Azure DevOps/Jira settings). Health probes should target the anonymous `/healthz` endpoint.
+This publishes the app in Release mode, takes the site offline, mirrors the output to `C:\inetpub\TestRailNavigator` (preserving `testrail-settings.json`, the SQLite database, and `logs\`), recycles the app pool, and performs a warm-up request. Configure the IIS site/app pool, then visit `/Setup` after deployment to configure the TestRail connection. Health probes should target the anonymous `/healthz` endpoint.
 
 > ⚠️ Never commit credentials. The `.gitignore` excludes `testrail-settings.json` and `launchSettings.json`.
 
@@ -119,7 +105,6 @@ Test-Rail-Navigator/
 │   ├── Models/                     # DTOs for TestRail API responses
 │   ├── Services/
 │   │   ├── AdminAuthenticationService.cs # Live, per-user TestRail authentication
-│   │   ├── AzureDevOpsUrlPolicy.cs # Approved destination validation
 │   │   ├── MarkdownRenderer.cs    # Sanitized Markdown rendering
 │   │   ├── TestRailClient.cs       # TestRail REST API client
 │   │   ├── SettingsService.cs      # Connection settings persistence
@@ -165,7 +150,7 @@ If the current user can't be resolved, the app defaults to **read-only** mode.
 dotnet test TestRailNavigator.slnx
 ```
 
-The security regression suite uses isolated temporary settings, in-process hosting, and fake HTTP handlers. It does not use real TestRail or Azure DevOps credentials.
+The security regression suite uses isolated temporary settings, in-process hosting, and fake HTTP handlers. It does not use real TestRail credentials.
 
 ## TestRail API
 
@@ -216,6 +201,5 @@ This project is open source. See the repository for license details.
 |---------|--------|----------------|
 | Unreleased | All data pages and handlers require sign-in, including read-only access. | Each user signs in with their own TestRail username/password once the TestRail connection is configured on `/Setup`. |
 | Unreleased | Production authentication cookies require HTTPS. | Configure TLS and correctly forward the request scheme through any trusted reverse proxy. |
-| Unreleased | Azure DevOps requires an approved HTTPS base URL as well as a PAT; HTTP and redirects are rejected. | Set `AzureDevOpsBaseUrl` in Setup, matching the origin, port, and case-sensitive organization/collection path of work-item links. |
 | Unreleased | Markdown generic attributes and unapproved advanced extensions are no longer interpreted. | Use supported headings, lists, tables, links, images, fenced code, strikethrough, and task lists instead of custom attributes. |
 | Unreleased | Data pages are no longer suitable for anonymous health probes. | Point monitoring at `/healthz`. |

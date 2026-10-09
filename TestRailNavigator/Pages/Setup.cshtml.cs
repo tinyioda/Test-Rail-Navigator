@@ -78,29 +78,6 @@ public class SetupModel : PageModel
         // Preserve the existing database encryption password when saving — it's not on the settings form.
         var existing = await _settingsService.GetSettingsAsync();
         Settings.DatabasePassword = existing?.DatabasePassword ?? string.Empty;
-        if (existing is not null)
-        {
-            // Preserve the existing Azure DevOps PAT when the user submits an empty value,
-            // so that re-saving the form without re-typing the token does not clear it.
-            if (string.IsNullOrWhiteSpace(Settings.AzureDevOpsPat))
-            {
-                Settings.AzureDevOpsPat = existing.AzureDevOpsPat;
-            }
-
-            // Same preserve-on-blank behavior for the Jira API token.
-            if (string.IsNullOrWhiteSpace(Settings.JiraApiToken))
-            {
-                Settings.JiraApiToken = existing.JiraApiToken;
-            }
-        }
-
-        if ((!string.IsNullOrWhiteSpace(Settings.AzureDevOpsBaseUrl)
-                || !string.IsNullOrWhiteSpace(Settings.AzureDevOpsPat))
-            && !AzureDevOpsUrlPolicy.TryGetBaseUri(Settings.AzureDevOpsBaseUrl, out _))
-        {
-            ErrorMessage = "Azure DevOps requires an approved HTTPS organization or collection base URL, without a query, fragment, or embedded credentials.";
-            return Page();
-        }
 
         try
         {

@@ -57,8 +57,6 @@ internal sealed class SecurityWebApplicationFactory(
                 .AddHttpMessageHandler(() => new FakeTestRailHandler(
                     request => TestRailResponder?.Invoke(request),
                     () => Interlocked.Increment(ref _outboundRequests)));
-            services.AddHttpClient<AzureDevOpsService>()
-                .AddHttpMessageHandler(CreateGuard);
         });
     }
 
@@ -69,8 +67,5 @@ internal sealed class SecurityWebApplicationFactory(
         AllowAutoRedirect = false,
         HandleCookies = true
     });
-
-    /// <summary>Prevents a regression from sending even dummy integration credentials to a network.</summary>
-    private RejectExternalRequestsHandler CreateGuard() =>
-        new(() => Interlocked.Increment(ref _outboundRequests));
 }
+

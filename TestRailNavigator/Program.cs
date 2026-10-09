@@ -106,10 +106,6 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 builder.Services.AddHttpClient<TestRailClient>();
-builder.Services.AddHttpClient<AzureDevOpsService>()
-    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
-builder.Services.AddScoped<IIssueTrackerClient>(sp => sp.GetRequiredService<AzureDevOpsService>());
-builder.Services.AddScoped<HierarchyGenerator>();
 builder.Services.AddSingleton<ConsoleLogService>();
 builder.Services.AddScoped<PermissionService>();
 

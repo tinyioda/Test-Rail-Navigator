@@ -72,13 +72,6 @@ Setup, since that is what is used to reach TestRail for live credential validati
 configuration must fail closed (sign-in disabled), never fall back to a local/offline credential
 check.
 
-### Azure DevOps Trust Boundary
-
-`AzureDevOpsBaseUrl` is an administrator-approved HTTPS organization or collection root.
-Both it and `AzureDevOpsPat` are required. Validate the origin, port, and organization/collection
-before attaching the PAT to any request, including child links. Do not follow redirects or infer
-a trusted destination from a user-supplied work-item URL.
-
 ### TestRail Settings
 
 Add the following to `appsettings.json` or use User Secrets for sensitive data:

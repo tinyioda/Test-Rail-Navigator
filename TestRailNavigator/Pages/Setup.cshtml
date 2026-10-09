@@ -48,61 +48,6 @@
 
                         <hr />
 
-                        <h6 class="mb-3">Azure DevOps <small class="text-muted">(optional)</small></h6>
-                        <div class="form-text mb-3">
-                            Only required for AzDO-dependent features (<a asp-page="/GenerateCases">Generate Cases</a>,
-                            <a asp-page="/GenerateHierarchy">Generate Hierarchy</a>,
-                            <a asp-page="/CreatePlanFromStory">New Plan from Story</a>). Leave both fields blank to
-                            skip this integration — those features stay disabled in the UI until both are set.
-                        </div>
-
-                        <div class="mb-3">
-                            <label asp-for="Settings.AzureDevOpsBaseUrl" class="form-label">Azure DevOps base URL</label>
-                            <input asp-for="Settings.AzureDevOpsBaseUrl" type="url" class="form-control"
-                                   placeholder="https://dev.azure.com/your-organization" aria-describedby="ado-base-help" />
-                            <div id="ado-base-help" class="form-text">
-                                Approved HTTPS organization or collection, without a project or work-item path.
-                                For Azure DevOps Server, include the collection, for example
-                                <code>https://ado.example.com/tfs/DefaultCollection</code>.
-                                Only links within this base may receive the PAT; redirects are not followed.
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label asp-for="Settings.AzureDevOpsPat" class="form-label">Azure DevOps PAT</label>
-                            <input asp-for="Settings.AzureDevOpsPat" type="password" class="form-control" autocomplete="new-password" />
-                            <div class="form-text">
-                                Optional. Requires an approved base URL above. Use a token with <em>Work Items (Read)</em> scope,
-                                used by the <a asp-page="/GenerateCases">Generate Cases</a> page.
-                                Leave blank to keep the existing value.
-                            </div>
-                        </div>
-
-                        <hr />
-                        <h6 class="mb-3">Jira <small class="text-muted">(optional)</small></h6>
-                        <p class="text-muted small mb-2">
-                            Not yet used by any feature in this app. Leave blank to skip; the
-                            <a asp-page="/GenerateHierarchy">Generate Hierarchy</a> page will pick up
-                            saved credentials automatically once the Jira tracker ships.
-                        </p>
-                        <div class="mb-3">
-                            <label asp-for="Settings.JiraBaseUrl" class="form-label">Jira base URL</label>
-                            <input asp-for="Settings.JiraBaseUrl" type="url" class="form-control" placeholder="https://your-tenant.atlassian.net" />
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label asp-for="Settings.JiraEmail" class="form-label">Jira email</label>
-                                <input asp-for="Settings.JiraEmail" type="email" class="form-control" placeholder="you@example.com" />
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label asp-for="Settings.JiraApiToken" class="form-label">Jira API token</label>
-                                <input asp-for="Settings.JiraApiToken" type="password" class="form-control" autocomplete="new-password" />
-                                <div class="form-text">Leave blank to keep the existing value.</div>
-                            </div>
-                        </div>
-
-                        <hr />
-
                         <div class="form-check form-switch mb-3">
                             <label asp-for="Settings.AllowWrites" class="form-check-label">Enable write operations</label>
                             <div class="form-text">

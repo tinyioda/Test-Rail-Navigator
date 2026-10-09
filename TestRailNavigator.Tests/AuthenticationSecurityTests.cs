@@ -26,10 +26,7 @@ public class AuthenticationSecurityTests
         string[] paths =
         [
             "/", "/Project/1", "/Milestones/1", "/PlanDetail/1", "/Tests/1",
-            "/TestDetail/1", "/TestCaseEdit/1", "/GenerateCases",
-            "/GenerateCases?handler=Load", "/GenerateCases?handler=Confirm",
-            "/GenerateHierarchy",
-            "/CreatePlanFromStory?handler=Confirm",
+            "/TestDetail/1", "/TestCaseEdit/1",
             "/PlanDetail/1?handler=Results&testId=1", "/Tests/1?handler=QuickEdit", "/Logout"
         ];
 
@@ -294,7 +291,7 @@ public class AuthenticationSecurityTests
         Assert.Equal(10, factory.OutboundRequests);
     }
 
-    /// <summary>Cookie lifetimes are bounded and Azure DevOps redirects cannot forward requests.</summary>
+    /// <summary>Cookie lifetimes are bounded.</summary>
     [Fact]
     public async Task AuthenticationAndHttpHandlersUseSecureDefaults()
     {
@@ -304,14 +301,6 @@ public class AuthenticationSecurityTests
         var options = factory.Services.GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>()
             .Get(CookieAuthenticationDefaults.AuthenticationScheme);
         Assert.Equal(TimeSpan.FromMinutes(30), options.ExpireTimeSpan);
-
-        var handler = factory.Services.GetRequiredService<IHttpMessageHandlerFactory>()
-            .CreateHandler(nameof(AzureDevOpsService));
-        while (handler is DelegatingHandler delegating)
-        {
-            handler = Assert.IsAssignableFrom<HttpMessageHandler>(delegating.InnerHandler);
-        }
-        Assert.False(Assert.IsType<HttpClientHandler>(handler).AllowAutoRedirect);
     }
 
     /// <summary>Returns explicitly dummy credentials for the isolated application.</summary>
