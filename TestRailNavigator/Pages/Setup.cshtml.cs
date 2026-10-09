@@ -94,12 +94,6 @@ public class SetupModel : PageModel
             {
                 Settings.JiraApiToken = existing.JiraApiToken;
             }
-
-            // Same preserve-on-blank behavior for the OpenAI-compatible API key.
-            if (string.IsNullOrWhiteSpace(Settings.OpenAiApiKey))
-            {
-                Settings.OpenAiApiKey = existing.OpenAiApiKey;
-            }
         }
 
         if ((!string.IsNullOrWhiteSpace(Settings.AzureDevOpsBaseUrl)

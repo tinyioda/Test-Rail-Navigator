@@ -82,19 +82,23 @@ After signing in, navigate to `/Setup` and enter:
 - **Username** — Your TestRail email
 - **API Key** — Your TestRail API key
 
-These three values are written to the `TestRail` section of `appsettings.json` at runtime. All other Setup fields (Azure DevOps, Jira, AI enrichment, write mode, console) continue to persist to `testrail-settings.json` (gitignored by default).
+These three values are written to the `TestRail` section of `appsettings.json` at runtime. Azure DevOps and Jira credentials (both optional) are written to their own `AzureDevOps`/`Jira` sections of `appsettings.json` the same way. All remaining Setup fields (write mode, console) continue to persist to `testrail-settings.json` (gitignored by default).
 
 **`/Setup` is only reachable until the connection is configured.** Before `BaseUrl`/`Username`/`ApiKey` are set, every other page redirects there. Once set, `/Setup` itself redirects to the dashboard for everyone, including the administrator — to change the connection afterward, edit the `TestRail` section of `appsettings.json` directly (or clear it to reopen Setup).
 
-### Azure DevOps
+### Azure DevOps (optional)
 
-Configure both **Azure DevOps base URL** (`AzureDevOpsBaseUrl`) and a **PAT** (`AzureDevOpsPat`) with Work Items (Read) scope. The base must be the approved HTTPS organization or collection, without a project, work-item path, query, fragment, or embedded credentials. Examples:
+Azure DevOps is optional. Leave both fields blank to skip it — AzDO-dependent features (Generate Cases, Generate Hierarchy, New Plan from Story) stay disabled in the UI until both are set. To enable it, configure both **Azure DevOps base URL** (`AzureDevOpsBaseUrl`) and a **PAT** (`AzureDevOpsPat`) with Work Items (Read) scope. The base must be the approved HTTPS organization or collection, without a project, work-item path, query, fragment, or embedded credentials. Examples:
 
 - `https://dev.azure.com/your-organization`
 - `https://your-organization.visualstudio.com`
 - `https://ado.example.com/tfs/DefaultCollection`
 
 Work-item links and hierarchy child links must match that origin, port, and organization/collection path. Other destinations are rejected before sending credentials. HTTP and redirects are not supported; use the server's canonical HTTPS URL.
+
+### Jira (optional)
+
+Jira credentials (`JiraBaseUrl`, `JiraEmail`, `JiraApiToken`) are optional and not yet used by any feature in the app — they're accepted on the Setup page and persisted to `appsettings.json` so they're ready once a Jira-backed tracker ships.
 
 ### IIS Deployment
 

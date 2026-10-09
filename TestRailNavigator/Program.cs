@@ -103,12 +103,6 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddHttpClient<TestRailClient>();
 builder.Services.AddHttpClient<AzureDevOpsService>()
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
-builder.Services.AddHttpClient<ICaseEnrichmentService, OpenAiCompatibleEnrichmentService>(c =>
-{
-    // Chat completions can take a while for larger stories; 2 minutes is a reasonable upper bound
-    // for a single AC -> structured case round trip.
-    c.Timeout = TimeSpan.FromMinutes(2);
-});
 builder.Services.AddScoped<IIssueTrackerClient>(sp => sp.GetRequiredService<AzureDevOpsService>());
 builder.Services.AddScoped<HierarchyGenerator>();
 builder.Services.AddSingleton<ConsoleLogService>();

@@ -23,7 +23,6 @@ public class GenerateCasesModel : PageModel
     private readonly SettingsService _settingsService;
     private readonly ConsoleLogService _consoleLog;
     private readonly PermissionService _permissionService;
-    private readonly ICaseEnrichmentService _enrichment;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GenerateCasesModel"/> class.
@@ -33,15 +32,13 @@ public class GenerateCasesModel : PageModel
         AzureDevOpsService azureDevOps,
         SettingsService settingsService,
         ConsoleLogService consoleLog,
-        PermissionService permissionService,
-        ICaseEnrichmentService enrichment)
+        PermissionService permissionService)
     {
         _testRail = testRail;
         _azureDevOps = azureDevOps;
         _settingsService = settingsService;
         _consoleLog = consoleLog;
         _permissionService = permissionService;
-        _enrichment = enrichment;
     }
 
     /// <summary>Gets or sets the current user's TestRail permissions.</summary>
@@ -147,26 +144,6 @@ public class GenerateCasesModel : PageModel
     /// <summary>Gets or sets the success banner message.</summary>
     public string? SuccessMessage { get; set; }
 
-    /// <summary>Gets or sets a value indicating whether an LLM endpoint is configured (drives the Enrich button).</summary>
-    public bool EnrichmentConfigured { get; set; }
-
-    /// <summary>Gets or sets a short display name for the configured LLM endpoint.</summary>
-    public string EnrichmentDisplayName { get; set; } = "(not configured)";
-
-    /// <summary>
-    /// Hidden form field carrying the plain-text rendering of the work item's Acceptance Criteria
-    /// across the Load -> Enrich/Confirm round trip. Used as LLM context so the model can see the
-    /// full AC block when authoring a single criterion.
-    /// </summary>
-    [BindProperty]
-    public string? AllAcPlainText { get; set; }
-
-    /// <summary>
-    /// Hidden form field carrying the plain-text Description across round trips, for LLM context.
-    /// </summary>
-    [BindProperty]
-    public string? StoryDescriptionPlainText { get; set; }
-
     /// <summary>
     /// GET handler — loads pickers and displays an empty form.
     /// </summary>
@@ -248,8 +225,6 @@ public class GenerateCasesModel : PageModel
         DetectedAcItemCount = parseResult.Diagnostics.ItemCount;
 
         var precondsDefault = AzureDevOpsService.HtmlToPlainText(item.DescriptionHtml);
-        StoryDescriptionPlainText = precondsDefault;
-        AllAcPlainText = AzureDevOpsService.HtmlToPlainText(sourceHtml);
         Cases = parseResult.Candidates.Select(c => new CaseDraft
         {
             Title = c.Title,
@@ -348,86 +323,6 @@ public class GenerateCasesModel : PageModel
         return Page();
     }
 
-    /// <summary>
-    /// POST handler for the "Enrich with AI" button. Calls the configured LLM endpoint to
-    /// transform each included parser-scaffold draft into a fully-authored TestRail case
-    /// (structured preconditions, summary, separated step/expected pairs). On any per-card
-    /// failure the original draft is preserved and an error appended to <see cref="ErrorMessage"/>.
-    /// Does not write to TestRail.
-    /// </summary>
-    public async Task<IActionResult> OnPostEnrichAsync()
-    {
-        if (!await _settingsService.IsConfiguredAsync())
-        {
-            return RedirectToPage("/Setup");
-        }
-
-        await LoadContextAsync();
-        PreviewReady = true;
-        ResolveDestination();
-
-        if (!await _enrichment.IsConfiguredAsync())
-        {
-            ErrorMessage = "AI enrichment isn't configured. Set OpenAiEndpoint, OpenAiApiKey and OpenAiModel in testrail-settings.json (Setup page).";
-            return Page();
-        }
-
-        if (Cases.Count == 0)
-        {
-            ErrorMessage = "Load a story first; there are no cases to enrich.";
-            return Page();
-        }
-
-        var ctx = new StoryEnrichmentContext(
-            StoryId,
-            StoryTitle ?? string.Empty,
-            StoryType ?? "Work Item",
-            StoryDescriptionPlainText ?? string.Empty,
-            AllAcPlainText ?? string.Empty);
-
-        var enriched = new List<CaseDraft>(Cases.Count);
-        var errors = new List<string>();
-        var successCount = 0;
-
-        for (var i = 0; i < Cases.Count; i++)
-        {
-            var draft = Cases[i];
-            if (!draft.Include || draft.Enriched)
-            {
-                enriched.Add(draft);
-                continue;
-            }
-
-            try
-            {
-                var result = await _enrichment.EnrichAsync(draft, ctx, HttpContext.RequestAborted);
-                enriched.Add(result);
-                successCount++;
-                _consoleLog.Log($"Enriched case {i + 1}/{Cases.Count}: '{result.Title}'.");
-            }
-            catch (Exception ex)
-            {
-                _consoleLog.Log($"Enrich failed for case {i + 1}: {ex.Message}");
-                errors.Add($"Case {i + 1} ('{draft.Title}'): {ex.Message}");
-                enriched.Add(draft);
-            }
-        }
-
-        Cases = enriched;
-        if (successCount > 0)
-        {
-            SuccessMessage = successCount == 1
-                ? "Enriched 1 case with AI."
-                : $"Enriched {successCount} cases with AI.";
-        }
-        if (errors.Count > 0)
-        {
-            ErrorMessage = "Some cases couldn't be enriched: " + string.Join(" | ", errors);
-        }
-
-        return Page();
-    }
-
     private async Task<GenerationResult> GenerateSingleCaseAsync(int sectionId, CaseDraft draft)
     {
         try
@@ -451,29 +346,17 @@ public class GenerateCasesModel : PageModel
 
     private AddTestCaseRequest BuildCaseRequest(CaseDraft draft)
     {
-        var hasSeparated = draft.StepsSeparated is { Count: > 0 };
-        var templateId = draft.TemplateId ?? (hasSeparated ? 2 : (int?)null);
         return new AddTestCaseRequest
         {
             Title = string.IsNullOrWhiteSpace(draft.Title) ? "(untitled)" : draft.Title,
             TypeId = draft.TypeId ?? CaseTypeId,
             PriorityId = draft.PriorityId ?? CasePriorityId,
-            TemplateId = templateId,
+            TemplateId = draft.TemplateId,
             Estimate = string.IsNullOrWhiteSpace(draft.Estimate) ? null : draft.Estimate,
             Refs = string.IsNullOrWhiteSpace(draft.Refs) ? null : draft.Refs,
             Preconditions = string.IsNullOrWhiteSpace(draft.Preconditions) ? null : draft.Preconditions,
-            Summary = string.IsNullOrWhiteSpace(draft.Summary) ? null : draft.Summary,
-            // When using the Steps template, send the structured steps and leave the plain
-            // custom_steps/custom_expected fields null so TestRail renders the grid.
-            Steps = hasSeparated ? null : (string.IsNullOrWhiteSpace(draft.Steps) ? null : draft.Steps),
-            ExpectedResult = hasSeparated ? null : (string.IsNullOrWhiteSpace(draft.Expected) ? null : draft.Expected),
-            StepsSeparated = hasSeparated
-                ? draft.StepsSeparated!.Select(s => new Models.TestCaseStep
-                {
-                    Content = s.Content ?? string.Empty,
-                    Expected = s.Expected ?? string.Empty
-                }).ToList()
-                : null
+            Steps = string.IsNullOrWhiteSpace(draft.Steps) ? null : draft.Steps,
+            ExpectedResult = string.IsNullOrWhiteSpace(draft.Expected) ? null : draft.Expected
         };
     }
 
@@ -547,8 +430,6 @@ public class GenerateCasesModel : PageModel
         Permissions = await _permissionService.GetPermissionsAsync();
         WritesEnabled = await _settingsService.AreWritesEnabledAsync();
         AzureDevOpsConfigured = await _azureDevOps.IsConfiguredAsync();
-        EnrichmentConfigured = await _enrichment.IsConfiguredAsync();
-        EnrichmentDisplayName = await _enrichment.GetDisplayNameAsync();
 
         try
         {

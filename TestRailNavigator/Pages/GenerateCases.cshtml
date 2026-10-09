@@ -109,8 +109,6 @@
         <input type="hidden" asp-for="StoryType" />
         <input type="hidden" asp-for="DetectedAcFormat" />
         <input type="hidden" asp-for="DetectedAcItemCount" />
-        <input type="hidden" asp-for="AllAcPlainText" />
-        <input type="hidden" asp-for="StoryDescriptionPlainText" />
 
         <div class="card p-3 mb-3">
             <h5 class="mb-3">1. Work item</h5>
@@ -215,30 +213,9 @@
         </div>
 
         <div class="card p-3 mb-3">
-            <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-                <div>
-                    <h5 class="mb-0">4. Cases (one per acceptance criterion)</h5>
-                    <span class="text-muted small">Uncheck a row to skip it. Edit in place; values round-trip on submit.</span>
-                </div>
-                <div class="text-end">
-                    @if (Model.EnrichmentConfigured)
-                    {
-                        <button type="submit" class="btn btn-outline-primary"
-                                formaction="?handler=Enrich"
-                                title="Use @Model.EnrichmentDisplayName to expand each AC into structured steps + expected results.">
-                            <i class="bi bi-stars"></i> Enrich with AI
-                        </button>
-                        <div class="text-muted small mt-1">via @Model.EnrichmentDisplayName</div>
-                    }
-                    else
-                    {
-                        <button type="button" class="btn btn-outline-secondary" disabled
-                                title="Configure OpenAiEndpoint, OpenAiApiKey and OpenAiModel on the Setup page to enable AI enrichment.">
-                            <i class="bi bi-stars"></i> Enrich with AI
-                        </button>
-                        <div class="text-muted small mt-1">AI not configured (see Setup)</div>
-                    }
-                </div>
+            <div class="mb-3">
+                <h5 class="mb-0">4. Cases (one per acceptance criterion)</h5>
+                <span class="text-muted small">Uncheck a row to skip it. Edit in place; values round-trip on submit.</span>
             </div>
             @if (Model.Cases.Count == 0)
             {
@@ -249,7 +226,6 @@
                 @for (var i = 0; i < Model.Cases.Count; i++)
                 {
                     var draft = Model.Cases[i];
-                    var hasSeparated = draft.StepsSeparated is { Count: > 0 };
                     <div class="border rounded p-3 mb-3" data-case-index="@i">
                         <div class="d-flex align-items-center mb-2 gap-2">
                             <div class="form-check mb-0">
@@ -261,17 +237,12 @@
                                 <label for="case-include-@i" class="form-check-label small text-muted">Include</label>
                             </div>
                             <span class="badge text-bg-secondary">Case @(i + 1) of @Model.Cases.Count</span>
-                            @if (draft.Enriched)
-                            {
-                                <span class="badge text-bg-info"><i class="bi bi-stars"></i> AI-enriched</span>
-                            }
                         </div>
                         <input type="hidden" name="Cases[@i].Refs" value="@draft.Refs" />
                         <input type="hidden" name="Cases[@i].OriginalTitle" value="@draft.OriginalTitle" />
                         <input type="hidden" name="Cases[@i].OriginalSteps" value="@draft.OriginalSteps" />
                         <input type="hidden" name="Cases[@i].OriginalExpected" value="@draft.OriginalExpected" />
                         <input type="hidden" name="Cases[@i].OriginalPreconditions" value="@draft.OriginalPreconditions" />
-                        <input type="hidden" name="Cases[@i].Enriched" value="@(draft.Enriched ? "true" : "false")" />
                         @if (draft.TemplateId.HasValue)
                         {
                             <input type="hidden" name="Cases[@i].TemplateId" value="@draft.TemplateId.Value" />
@@ -282,67 +253,21 @@
                             <textarea name="Cases[@i].Title" class="form-control" rows="2"
                                       style="min-height:3rem;">@draft.Title</textarea>
                         </div>
-                        @if (draft.Enriched || !string.IsNullOrWhiteSpace(draft.Summary))
-                        {
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold mb-1">Summary</label>
-                                <textarea name="Cases[@i].Summary" class="form-control" rows="3"
-                                          style="min-height:5rem;">@draft.Summary</textarea>
-                            </div>
-                        }
                         <div class="mb-3">
                             <label class="form-label fw-semibold mb-1">Preconditions</label>
                             <textarea name="Cases[@i].Preconditions" class="form-control" rows="6"
                                       style="min-height:9rem;">@draft.Preconditions</textarea>
                         </div>
-                        @if (hasSeparated)
-                        {
-                            <div class="mb-0">
-                                <label class="form-label fw-semibold mb-1">Steps (structured)</label>
-                                <table class="table table-sm align-top mb-0">
-                                    <thead>
-                                        <tr>
-                                            <th style="width:3rem;">#</th>
-                                            <th>Step</th>
-                                            <th>Expected</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @for (var s = 0; s < draft.StepsSeparated!.Count; s++)
-                                        {
-                                            <tr>
-                                                <td class="text-muted small">@(s + 1)</td>
-                                                <td>
-                                                    <textarea name="Cases[@i].StepsSeparated[@s].Content"
-                                                              class="form-control form-control-sm" rows="3"
-                                                              style="min-height:5rem;">@draft.StepsSeparated[s].Content</textarea>
-                                                </td>
-                                                <td>
-                                                    <textarea name="Cases[@i].StepsSeparated[@s].Expected"
-                                                              class="form-control form-control-sm" rows="3"
-                                                              style="min-height:5rem;">@draft.StepsSeparated[s].Expected</textarea>
-                                                </td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                                <input type="hidden" name="Cases[@i].Steps" value="" />
-                                <input type="hidden" name="Cases[@i].Expected" value="" />
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold mb-1">Steps</label>
-                                <textarea name="Cases[@i].Steps" class="form-control" rows="12"
-                                          style="min-height:18rem; font-family:var(--bs-font-monospace); font-size:.95em;">@draft.Steps</textarea>
-                            </div>
-                            <div class="mb-0">
-                                <label class="form-label fw-semibold mb-1">Expected result</label>
-                                <textarea name="Cases[@i].Expected" class="form-control" rows="6"
-                                          style="min-height:9rem;">@draft.Expected</textarea>
-                            </div>
-                        }
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold mb-1">Steps</label>
+                            <textarea name="Cases[@i].Steps" class="form-control" rows="12"
+                                      style="min-height:18rem; font-family:var(--bs-font-monospace); font-size:.95em;">@draft.Steps</textarea>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label fw-semibold mb-1">Expected result</label>
+                            <textarea name="Cases[@i].Expected" class="form-control" rows="6"
+                                      style="min-height:9rem;">@draft.Expected</textarea>
+                        </div>
                     </div>
                 }
             }

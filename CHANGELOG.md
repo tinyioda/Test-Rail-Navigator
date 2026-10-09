@@ -18,6 +18,7 @@ All notable changes to this project are documented here using
 - An anonymous `/healthz` endpoint that reports application health without querying integrations.
 - A configurable `DataProtection:KeysPath` for persistent authentication key storage.
 - A `TestRail` section in `appsettings.json` storing the connection `BaseUrl`/`Username`/`ApiKey`, writable at runtime from the Setup page.
+- `AzureDevOps` and `Jira` sections in `appsettings.json` storing their (optional) credentials, writable at runtime from the Setup page, mirroring the `TestRail` section.
 - Unit test coverage for `AcceptanceCriteriaParser`, `HierarchyGenerator`, `SectionTreeBuilder`, `PermissionService`, `TestRailPermissions`, `SettingsService`, and `MarkdownRenderer` to satisfy the new Test-Driven Development process requirement.
 
 ### Changed
@@ -27,6 +28,11 @@ All notable changes to this project are documented here using
 - Surface hierarchy child-fetch failures instead of silently dropping failed work items.
 - Document `/healthz` for deployment and upgrade requirements.
 - Mandate Test-Driven Development (red-green-refactor) for all future code changes; see `STEERING.md`.
+- Label Azure DevOps and Jira as optional on the Setup page; features that depend on them remain disabled until configured.
+
+### Removed
+
+- The AI case-enrichment feature ("Enrich with AI" on Generate Cases, the OpenAI-compatible endpoint configuration, and all related code/tests). Use third-party MCPs or AI skills for this instead.
 
 ### Breaking
 

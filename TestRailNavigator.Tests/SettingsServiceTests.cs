@@ -106,6 +106,10 @@ public class SettingsServiceTests
             Username = "saved-user",
             ApiKey = "saved-key",
             AzureDevOpsBaseUrl = "https://dev.azure.com/jsi",
+            AzureDevOpsPat = "ado-pat",
+            JiraBaseUrl = "https://jsi.atlassian.net",
+            JiraEmail = "jsi@example.com",
+            JiraApiToken = "jira-token",
             AllowWrites = false
         };
 
@@ -117,13 +121,88 @@ public class SettingsServiceTests
         Assert.Equal("https://saved.example", appSettingsJson["TestRail"]?["BaseUrl"]?.GetValue<string>());
         Assert.Equal("saved-user", appSettingsJson["TestRail"]?["Username"]?.GetValue<string>());
         Assert.Equal("saved-key", appSettingsJson["TestRail"]?["ApiKey"]?.GetValue<string>());
+        Assert.Equal("https://dev.azure.com/jsi", appSettingsJson["AzureDevOps"]?["BaseUrl"]?.GetValue<string>());
+        Assert.Equal("ado-pat", appSettingsJson["AzureDevOps"]?["Pat"]?.GetValue<string>());
+        Assert.Equal("https://jsi.atlassian.net", appSettingsJson["Jira"]?["BaseUrl"]?.GetValue<string>());
+        Assert.Equal("jsi@example.com", appSettingsJson["Jira"]?["Email"]?.GetValue<string>());
+        Assert.Equal("jira-token", appSettingsJson["Jira"]?["ApiToken"]?.GetValue<string>());
 
         var legacyJson = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(environment.RootPath, "testrail-settings.json")))!.AsObject();
-        Assert.Equal("https://dev.azure.com/jsi", legacyJson["AzureDevOpsBaseUrl"]?.GetValue<string>());
         Assert.False(legacyJson["AllowWrites"]?.GetValue<bool>() ?? true);
         Assert.False(legacyJson.ContainsKey("BaseUrl"));
         Assert.False(legacyJson.ContainsKey("Username"));
         Assert.False(legacyJson.ContainsKey("ApiKey"));
+        Assert.False(legacyJson.ContainsKey("AzureDevOpsBaseUrl"));
+        Assert.False(legacyJson.ContainsKey("AzureDevOpsPat"));
+        Assert.False(legacyJson.ContainsKey("JiraBaseUrl"));
+        Assert.False(legacyJson.ContainsKey("JiraEmail"));
+        Assert.False(legacyJson.ContainsKey("JiraApiToken"));
+    }
+
+    /// <summary>Present AzureDevOps/Jira configuration keys override legacy file values, mirroring TestRail's overlay behavior.</summary>
+    [Fact]
+    public async Task GetSettingsAsync_UsesAzureDevOpsAndJiraConfigurationOverridesWhenKeysArePresent()
+    {
+        using var environment = new SettingsTestEnvironment();
+        await File.WriteAllTextAsync(
+            Path.Combine(environment.RootPath, "testrail-settings.json"),
+            JsonSerializer.Serialize(new TestRailSettings
+            {
+                AzureDevOpsBaseUrl = "https://legacy-ado.example",
+                AzureDevOpsPat = "legacy-pat",
+                JiraBaseUrl = "https://legacy-jira.example",
+                JiraEmail = "legacy@example.com",
+                JiraApiToken = "legacy-token"
+            }));
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AzureDevOps:BaseUrl"] = "https://dev.azure.com/config-org",
+                ["AzureDevOps:Pat"] = "config-pat",
+                ["Jira:BaseUrl"] = "https://config.atlassian.net",
+                ["Jira:Email"] = "config@example.com",
+                ["Jira:ApiToken"] = "config-token"
+            })
+            .Build();
+        var service = new SettingsService(environment, configuration);
+
+        var settings = await service.GetSettingsAsync();
+
+        Assert.NotNull(settings);
+        Assert.Equal("https://dev.azure.com/config-org", settings.AzureDevOpsBaseUrl);
+        Assert.Equal("config-pat", settings.AzureDevOpsPat);
+        Assert.Equal("https://config.atlassian.net", settings.JiraBaseUrl);
+        Assert.Equal("config@example.com", settings.JiraEmail);
+        Assert.Equal("config-token", settings.JiraApiToken);
+    }
+
+    /// <summary>When the AzureDevOps/Jira configuration sections are absent entirely, legacy file values survive unchanged.</summary>
+    [Fact]
+    public async Task GetSettingsAsync_PreservesLegacyAzureDevOpsAndJiraValuesWhenConfigurationSectionsAreAbsent()
+    {
+        using var environment = new SettingsTestEnvironment();
+        await File.WriteAllTextAsync(
+            Path.Combine(environment.RootPath, "testrail-settings.json"),
+            JsonSerializer.Serialize(new TestRailSettings
+            {
+                AzureDevOpsBaseUrl = "https://legacy-ado.example",
+                AzureDevOpsPat = "legacy-pat",
+                JiraBaseUrl = "https://legacy-jira.example",
+                JiraEmail = "legacy@example.com",
+                JiraApiToken = "legacy-token"
+            }));
+
+        var service = new SettingsService(environment, new ConfigurationBuilder().Build());
+
+        var settings = await service.GetSettingsAsync();
+
+        Assert.NotNull(settings);
+        Assert.Equal("https://legacy-ado.example", settings.AzureDevOpsBaseUrl);
+        Assert.Equal("legacy-pat", settings.AzureDevOpsPat);
+        Assert.Equal("https://legacy-jira.example", settings.JiraBaseUrl);
+        Assert.Equal("legacy@example.com", settings.JiraEmail);
+        Assert.Equal("legacy-token", settings.JiraApiToken);
     }
 
     /// <summary>An explicit empty configuration override can make an otherwise populated installation read as unconfigured.</summary>

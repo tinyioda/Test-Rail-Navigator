@@ -88,23 +88,4 @@ public class CaseDraft
     /// Null when no duplicate exists. Display only — not round-tripped from the client.
     /// </summary>
     public int? DuplicateOfCaseId { get; set; }
-
-    /// <summary>
-    /// Gets or sets an LLM-authored one-paragraph summary of what the test verifies. Used with
-    /// the "Test Case (Steps)" template (TemplateId = 2). Null on pure-parser scaffolds.
-    /// </summary>
-    public string? Summary { get; set; }
-
-    /// <summary>
-    /// Gets or sets the LLM-authored step/expected pairs. When populated the draft is committed
-    /// against the "Test Case (Steps)" template. Null falls back to the plain
-    /// <see cref="Steps"/> / <see cref="Expected"/> textareas.
-    /// </summary>
-    public List<Models.TestCaseStep>? StepsSeparated { get; set; }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether this draft has already been enriched by the LLM.
-    /// Used by the UI to show a badge and to avoid re-spending tokens on repeated clicks.
-    /// </summary>
-    public bool Enriched { get; set; }
 }

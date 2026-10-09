@@ -27,7 +27,7 @@ public class AuthenticationSecurityTests
             "/", "/Project/1", "/Milestones/1", "/PlanDetail/1", "/Tests/1",
             "/TestDetail/1", "/TestCaseEdit/1", "/GenerateCases",
             "/GenerateCases?handler=Load", "/GenerateCases?handler=Confirm",
-            "/GenerateCases?handler=Enrich", "/GenerateHierarchy",
+            "/GenerateHierarchy",
             "/CreatePlanFromStory?handler=Confirm",
             "/PlanDetail/1?handler=Results&testId=1", "/Tests/1?handler=QuickEdit", "/Logout"
         ];
