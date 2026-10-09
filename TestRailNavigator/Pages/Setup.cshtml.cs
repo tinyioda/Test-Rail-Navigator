@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using TestRailNavigator.Services;
@@ -7,9 +6,12 @@ namespace TestRailNavigator.Pages;
 
 /// <summary>
 /// Page model for the Setup page to configure TestRail connection.
-/// Restricted to the authenticated application administrator.
+/// Anonymously reachable (see Program.cs page conventions) so a fresh deployment with no
+/// administrator account yet can still provision the TestRail connection. Reachability is
+/// enforced entirely by the connection-gate middleware in Program.cs: this page is only ever
+/// actually served while the connection is unconfigured; once configured, the gate redirects
+/// every request for it (authenticated or not) to the dashboard before it is reached.
 /// </summary>
-[Authorize(Policy = AdminAuthenticationService.AdministratorPolicy)]
 public class SetupModel : PageModel
 {
     private readonly SettingsService _settingsService;

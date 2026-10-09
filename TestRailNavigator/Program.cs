@@ -35,6 +35,11 @@ builder.Services.AddRazorPages(options =>
 {
     options.Conventions.AllowAnonymousToPage("/Login");
     options.Conventions.AllowAnonymousToPage("/Error");
+    // Setup must be reachable before any administrator account can exist (there is nothing to sign
+    // in with yet on a fresh deployment). It is still never exposed once the TestRail connection is
+    // configured: the connection gate below redirects every request away from it in that case,
+    // authenticated or not, so this does not weaken the configured-and-running application.
+    options.Conventions.AllowAnonymousToPage("/Setup");
     options.Conventions.ConfigureFilter(new ResponseCacheAttribute
     {
         Location = ResponseCacheLocation.None,
@@ -161,6 +166,30 @@ app.UseHttpsRedirection();
 
 app.UseRouting();
 
+// Before any authentication/authorization runs: until the TestRail connection is configured, the
+// only reachable page is /Setup (plus Error/healthz/static assets). There is no administrator
+// account to sign in with yet on a fresh deployment, so this must not depend on authentication --
+// every other path, including /Login, redirects straight to /Setup.
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path;
+    if (path.StartsWithSegments("/Error") || path.StartsWithSegments("/healthz")
+        || path.Value?.Contains('.') == true)
+    {
+        await next();
+        return;
+    }
+
+    var settingsService = context.RequestServices.GetRequiredService<SettingsService>();
+    if (!await settingsService.IsConfiguredAsync() && !path.StartsWithSegments("/Setup"))
+    {
+        context.Response.Redirect("/Setup");
+        return;
+    }
+
+    await next();
+});
+
 app.UseAuthentication();
 app.UseRateLimiter();
 
@@ -187,31 +216,21 @@ app.Use(async (context, next) =>
 
 app.UseAuthorization();
 
-// Gate every authenticated page behind the TestRail connection being configured:
-// until BaseUrl/Username/ApiKey are set, only /Setup is reachable; once configured,
-// /Setup is no longer reachable by anyone (including the administrator) and visitors
-// are bounced to the dashboard. Login/Error/healthz and static assets are exempt.
+// After authorization: once the TestRail connection is configured, /Setup itself becomes
+// unreachable for everyone, including the administrator, and bounces to the dashboard instead.
+// (The unconfigured direction is handled above, before authentication, since there may be no
+// administrator account yet to authenticate.)
 app.Use(async (context, next) =>
 {
     var path = context.Request.Path;
-    if (path.StartsWithSegments("/Login") || path.StartsWithSegments("/Error")
-        || path.StartsWithSegments("/healthz") || path.Value?.Contains('.') == true)
+    if (!path.StartsWithSegments("/Setup"))
     {
         await next();
         return;
     }
 
     var settingsService = context.RequestServices.GetRequiredService<SettingsService>();
-    var isConfigured = await settingsService.IsConfiguredAsync();
-    var isSetupPath = path.StartsWithSegments("/Setup");
-
-    if (!isConfigured && !isSetupPath)
-    {
-        context.Response.Redirect("/Setup");
-        return;
-    }
-
-    if (isConfigured && isSetupPath)
+    if (await settingsService.IsConfiguredAsync())
     {
         context.Response.Redirect("/");
         return;

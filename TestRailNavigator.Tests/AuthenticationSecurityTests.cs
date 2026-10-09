@@ -28,7 +28,7 @@ public class AuthenticationSecurityTests
             "/TestDetail/1", "/TestCaseEdit/1", "/GenerateCases",
             "/GenerateCases?handler=Load", "/GenerateCases?handler=Confirm",
             "/GenerateCases?handler=Enrich", "/GenerateHierarchy",
-            "/CreatePlanFromStory?handler=Confirm", "/Setup", "/Setup?handler=Login",
+            "/CreatePlanFromStory?handler=Confirm",
             "/PlanDetail/1?handler=Results&testId=1", "/Tests/1?handler=QuickEdit", "/Logout"
         ];
 
@@ -41,10 +41,24 @@ public class AuthenticationSecurityTests
             Assert.StartsWith("https://localhost/Login", response.Headers.Location?.AbsoluteUri);
         }
 
+        // /Setup is publicly routable (anonymous) so a fresh deployment can reach it, but once the
+        // TestRail connection is configured the gate bounces every request -- anonymous or not --
+        // straight to the dashboard instead of exposing the page at all.
+        foreach (var setupPath in new[] { "/Setup", "/Setup?handler=Login" })
+        {
+            using var request = new HttpRequestMessage(new HttpMethod(method), setupPath);
+            request.Headers.Add("Cookie", "SetupAuthenticated=true");
+            using var response = await browser.SendAsync(request);
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            Assert.Equal("/", response.Headers.Location?.OriginalString);
+        }
+
         Assert.Equal(0, factory.OutboundRequests);
     }
 
-    /// <summary>Missing credentials cannot reopen public Setup or issue an administrator cookie.</summary>
+    /// <summary>Missing credentials cannot reopen public Setup or issue an administrator cookie,
+    /// once the TestRail connection is already configured (so the unconfigured-connection Setup gate
+    /// does not mask this independent failure mode).</summary>
     [Theory]
     [InlineData("", "")]
     [InlineData("admin", "")]
@@ -53,6 +67,9 @@ public class AuthenticationSecurityTests
     {
         using var scope = await TestSettingsScope.CreateAsync(new TestRailSettings
         {
+            BaseUrl = "https://testrail.invalid",
+            Username = "fixture@example.invalid",
+            ApiKey = "fixture-only-token",
             SetupUsername = username,
             SetupPassword = password
         });
@@ -64,6 +81,7 @@ public class AuthenticationSecurityTests
         Assert.Contains("Administrator credentials are not configured.", await login.Content.ReadAsStringAsync());
         using var setup = await browser.GetAsync("/Setup");
         Assert.Equal(HttpStatusCode.Redirect, setup.StatusCode);
+        Assert.Equal("/", setup.Headers.Location?.OriginalString);
 
         var auth = factory.Services.GetRequiredService<AdminAuthenticationService>();
         Assert.False(await auth.IsConfiguredAsync());
@@ -71,9 +89,38 @@ public class AuthenticationSecurityTests
         Assert.Equal(0, factory.OutboundRequests);
     }
 
-    /// <summary>Deployment credentials allow the first administrator to provision an empty installation.</summary>
+    /// <summary>Before any administrator exists, the TestRail connection is also necessarily
+    /// unconfigured on a fresh deployment: /Setup must be the only reachable page, and it must be
+    /// reachable without signing in first (there is no account to sign in with yet).</summary>
     [Fact]
-    public async Task DeploymentCredentialsSupportFirstRunWithoutSettingsFile()
+    public async Task UnconfiguredConnectionExposesOnlySetupWithoutAuthentication()
+    {
+        using var scope = await TestSettingsScope.CreateAsync(new TestRailSettings());
+        using var factory = new SecurityWebApplicationFactory(scope);
+        using var browser = factory.CreateBrowser();
+
+        using var setup = await browser.GetAsync("/Setup");
+        Assert.Equal(HttpStatusCode.OK, setup.StatusCode);
+
+        string[] paths = ["/", "/Login", "/Project/1", "/Milestones/1", "/PlanDetail/1"];
+        foreach (var path in paths)
+        {
+            using var response = await browser.GetAsync(path);
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            Assert.Equal("/Setup", response.Headers.Location?.OriginalString);
+        }
+
+        using var health = await browser.GetAsync("/healthz");
+        Assert.Equal(HttpStatusCode.OK, health.StatusCode);
+
+        Assert.Equal(0, factory.OutboundRequests);
+    }
+
+    /// <summary>Deployment-provisioned admin credentials do not let anyone skip ahead of the
+    /// unconfigured-connection gate: /Login redirects straight to /Setup, which is reachable
+    /// anonymously, exactly like the no-credentials case.</summary>
+    [Fact]
+    public async Task DeploymentCredentialsDoNotBypassUnconfiguredConnectionGate()
     {
         using var scope = await TestSettingsScope.CreateAsync(new TestRailSettings());
         File.Delete(Path.Combine(scope.RootPath, "testrail-settings.json"));
@@ -83,17 +130,18 @@ public class AuthenticationSecurityTests
             ["TestRail:SetupPassword"] = Password
         });
         using var browser = factory.CreateBrowser();
-        using var response = await SignInAsync(browser, "/Setup");
 
-        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Equal("/Setup", response.Headers.Location?.OriginalString);
+        using var login = await browser.GetAsync("/Login");
+        Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
+        Assert.Equal("/Setup", login.Headers.Location?.OriginalString);
+
         using var setup = await browser.GetAsync("/Setup");
         Assert.Equal(HttpStatusCode.OK, setup.StatusCode);
         Assert.Equal(0, factory.OutboundRequests);
     }
 
-    /// <summary>Until the TestRail connection is configured, every authenticated page is gated to /Setup;
-    /// once configured, /Setup itself becomes unreachable and bounces to the dashboard.</summary>
+    /// <summary>Until the TestRail connection is configured, every page (anonymous or not) is gated to
+    /// /Setup; once configured, /Setup itself becomes unreachable and bounces to the dashboard.</summary>
     [Fact]
     public async Task ConnectionGateControlsSetupReachability()
     {
@@ -102,7 +150,9 @@ public class AuthenticationSecurityTests
         {
             using var factory = new SecurityWebApplicationFactory(scope);
             using var browser = factory.CreateBrowser();
-            using var signIn = await SignInAsync(browser, "/");
+
+            // Nobody can sign in yet to reach "/" -- the connection gate redirects straight to Setup
+            // before authentication even runs.
             using var home = await browser.GetAsync("/");
             Assert.Equal(HttpStatusCode.Redirect, home.StatusCode);
             Assert.Equal("/Setup", home.Headers.Location?.OriginalString);
@@ -238,12 +288,15 @@ public class AuthenticationSecurityTests
         using var scope = await TestSettingsScope.CreateAsync(ConfiguredSettings());
         using var factory = new SecurityWebApplicationFactory(scope);
         using var browser = factory.CreateBrowser();
-        using var signIn = await SignInAsync(browser, "/Setup");
+        // Target "/" rather than "/Setup": once the TestRail connection is configured, "/Setup" is
+        // publicly routable-but-redirected (not authentication-gated), so it is no longer a valid
+        // probe for cookie/session invalidation -- "/" remains behind the administrator policy.
+        using var signIn = await SignInAsync(browser, "/");
         var changed = ConfiguredSettings();
         changed.SetupPassword = "changed-fixture-password";
         await scope.Settings.SaveSettingsAsync(changed);
 
-        using var response = await browser.GetAsync("/Setup");
+        using var response = await browser.GetAsync("/");
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.StartsWith("https://localhost/Login", response.Headers.Location?.AbsoluteUri);
     }
