@@ -75,10 +75,8 @@ public class SetupModel : PageModel
             return Page();
         }
 
-        // Preserve existing Setup credentials when saving — the login fields are not on the settings form.
+        // Preserve the existing database encryption password when saving — it's not on the settings form.
         var existing = await _settingsService.GetSettingsAsync();
-        Settings.SetupUsername = existing?.SetupUsername ?? string.Empty;
-        Settings.SetupPassword = existing?.SetupPassword ?? string.Empty;
         Settings.DatabasePassword = existing?.DatabasePassword ?? string.Empty;
         if (existing is not null)
         {

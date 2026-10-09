@@ -27,18 +27,6 @@ public class TestRailSettings
     public bool AllowWrites { get; set; }
 
     /// <summary>
-    /// Gets or sets the administrator username required to access the application.
-    /// Access is disabled when either administrator credential is missing.
-    /// </summary>
-    public string SetupUsername { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the administrator password required to access the application.
-    /// Access is disabled when either administrator credential is missing.
-    /// </summary>
-    public string SetupPassword { get; set; } = string.Empty;
-
-    /// <summary>
     /// Gets or sets a value indicating whether the console window is shown. Defaults to true.
     /// </summary>
     public bool ShowConsole { get; set; } = true;

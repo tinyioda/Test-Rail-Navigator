@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 using AngleSharp.Html.Parser;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,10 +8,10 @@ using TestRailNavigator.Services;
 
 namespace TestRailNavigator.Tests;
 
-/// <summary>Covers the single-admin boundary through the actual Razor Pages request pipeline.</summary>
+/// <summary>Covers the per-user, live-TestRail-validated sign-in boundary through the actual Razor Pages request pipeline.</summary>
 public class AuthenticationSecurityTests
 {
-    private const string Username = "fixture-admin";
+    private const string Username = "fixture-user@example.test";
     private const string Password = "fixture-only-not-a-real-password";
 
     /// <summary>Every data page and mutation handler must challenge before contacting integrations.</summary>
@@ -56,42 +57,26 @@ public class AuthenticationSecurityTests
         Assert.Equal(0, factory.OutboundRequests);
     }
 
-    /// <summary>Missing credentials cannot reopen public Setup or issue an administrator cookie,
-    /// once the TestRail connection is already configured (so the unconfigured-connection Setup gate
-    /// does not mask this independent failure mode).</summary>
+    /// <summary>Blank credentials are rejected without ever contacting TestRail, even when the
+    /// connection is fully configured -- there is no point validating input that is trivially invalid.</summary>
     [Theory]
     [InlineData("", "")]
-    [InlineData("admin", "")]
+    [InlineData("someone", "")]
     [InlineData("", "password")]
-    public async Task MissingCredentialsFailClosed(string username, string password)
+    public async Task MissingCredentialsFailClosedWithoutContactingTestRail(string username, string password)
     {
-        using var scope = await TestSettingsScope.CreateAsync(new TestRailSettings
-        {
-            BaseUrl = "https://testrail.invalid",
-            Username = "fixture@example.invalid",
-            ApiKey = "fixture-only-token",
-            SetupUsername = username,
-            SetupPassword = password
-        });
+        using var scope = await TestSettingsScope.CreateAsync(ConfiguredSettings());
         using var factory = new SecurityWebApplicationFactory(scope);
-        using var browser = factory.CreateBrowser();
-
-        using var login = await browser.GetAsync("/Login");
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, login.StatusCode);
-        Assert.Contains("Administrator credentials are not configured.", await login.Content.ReadAsStringAsync());
-        using var setup = await browser.GetAsync("/Setup");
-        Assert.Equal(HttpStatusCode.Redirect, setup.StatusCode);
-        Assert.Equal("/", setup.Headers.Location?.OriginalString);
-
         var auth = factory.Services.GetRequiredService<AdminAuthenticationService>();
-        Assert.False(await auth.IsConfiguredAsync());
+
+        Assert.True(await auth.IsConfiguredAsync());
         Assert.Null(await auth.AuthenticateAsync(username, password));
         Assert.Equal(0, factory.OutboundRequests);
     }
 
-    /// <summary>Before any administrator exists, the TestRail connection is also necessarily
-    /// unconfigured on a fresh deployment: /Setup must be the only reachable page, and it must be
-    /// reachable without signing in first (there is no account to sign in with yet).</summary>
+    /// <summary>Before the TestRail connection exists, nobody can sign in yet: /Setup must be the
+    /// only reachable page, and it must be reachable without signing in first (there is no live
+    /// connection against which to validate anyone's credentials).</summary>
     [Fact]
     public async Task UnconfiguredConnectionExposesOnlySetupWithoutAuthentication()
     {
@@ -116,37 +101,12 @@ public class AuthenticationSecurityTests
         Assert.Equal(0, factory.OutboundRequests);
     }
 
-    /// <summary>Deployment-provisioned admin credentials do not let anyone skip ahead of the
-    /// unconfigured-connection gate: /Login redirects straight to /Setup, which is reachable
-    /// anonymously, exactly like the no-credentials case.</summary>
-    [Fact]
-    public async Task DeploymentCredentialsDoNotBypassUnconfiguredConnectionGate()
-    {
-        using var scope = await TestSettingsScope.CreateAsync(new TestRailSettings());
-        File.Delete(Path.Combine(scope.RootPath, "testrail-settings.json"));
-        using var factory = new SecurityWebApplicationFactory(scope, new Dictionary<string, string?>
-        {
-            ["TestRail:SetupUsername"] = Username,
-            ["TestRail:SetupPassword"] = Password
-        });
-        using var browser = factory.CreateBrowser();
-
-        using var login = await browser.GetAsync("/Login");
-        Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
-        Assert.Equal("/Setup", login.Headers.Location?.OriginalString);
-
-        using var setup = await browser.GetAsync("/Setup");
-        Assert.Equal(HttpStatusCode.OK, setup.StatusCode);
-        Assert.Equal(0, factory.OutboundRequests);
-    }
-
     /// <summary>Until the TestRail connection is configured, every page (anonymous or not) is gated to
     /// /Setup; once configured, /Setup itself becomes unreachable and bounces to the dashboard.</summary>
     [Fact]
     public async Task ConnectionGateControlsSetupReachability()
     {
-        var unconfigured = new TestRailSettings { SetupUsername = Username, SetupPassword = Password };
-        using (var scope = await TestSettingsScope.CreateAsync(unconfigured))
+        using (var scope = await TestSettingsScope.CreateAsync(new TestRailSettings()))
         {
             using var factory = new SecurityWebApplicationFactory(scope);
             using var browser = factory.CreateBrowser();
@@ -162,7 +122,10 @@ public class AuthenticationSecurityTests
         }
 
         using var configuredScope = await TestSettingsScope.CreateAsync(ConfiguredSettings());
-        using var configuredFactory = new SecurityWebApplicationFactory(configuredScope);
+        using var configuredFactory = new SecurityWebApplicationFactory(configuredScope)
+        {
+            TestRailResponder = _ => ValidUserResponse()
+        };
         using var configuredBrowser = configuredFactory.CreateBrowser();
         using var configuredSignIn = await SignInAsync(configuredBrowser, "/");
         using var configuredHome = await configuredBrowser.GetAsync("/");
@@ -173,7 +136,8 @@ public class AuthenticationSecurityTests
         Assert.Equal("/", configuredSetup.Headers.Location?.OriginalString);
     }
 
-    /// <summary>Sign-in is antiforgery-protected, generic on failure, and uses secure administrator cookies.</summary>
+    /// <summary>Sign-in validates credentials live against TestRail, is antiforgery-protected,
+    /// generic on failure, and issues a secure cookie carrying no credential material.</summary>
     [Fact]
     public async Task SignInRequiresAntiforgeryAndValidCredentials()
     {
@@ -187,18 +151,21 @@ public class AuthenticationSecurityTests
         }));
         Assert.Equal(HttpStatusCode.BadRequest, withoutToken.StatusCode);
 
+        factory.TestRailResponder = _ => InvalidCredentialsResponse();
         using var invalid = await SignInAsync(browser, "/Setup", password: "incorrect-fixture-password");
         Assert.Equal(HttpStatusCode.Unauthorized, invalid.StatusCode);
         Assert.Contains("Invalid username or password.", await invalid.Content.ReadAsStringAsync());
         Assert.DoesNotContain("incorrect-fixture-password", await invalid.Content.ReadAsStringAsync());
 
+        factory.TestRailResponder = _ => ValidUserResponse();
         using var valid = await SignInAsync(browser, "/");
         Assert.Equal(HttpStatusCode.Redirect, valid.StatusCode);
         var cookie = Assert.Single(valid.Headers.GetValues("Set-Cookie"),
-            value => value.StartsWith("TestRailNavigator.Admin=", StringComparison.Ordinal));
+            value => value.StartsWith("TestRailNavigator.Auth=", StringComparison.Ordinal));
         Assert.Contains("httponly", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("secure", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("samesite=strict", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(Password, cookie);
 
         // The TestRail connection is configured in this fixture, so /Setup is no longer reachable.
         using var setup = await browser.GetAsync("/Setup");
@@ -248,7 +215,7 @@ public class AuthenticationSecurityTests
     public async Task SignInRejectsExternalReturnUrls(string returnUrl)
     {
         using var scope = await TestSettingsScope.CreateAsync(ConfiguredSettings());
-        using var factory = new SecurityWebApplicationFactory(scope);
+        using var factory = new SecurityWebApplicationFactory(scope) { TestRailResponder = _ => ValidUserResponse() };
         using var browser = factory.CreateBrowser();
         using var response = await SignInAsync(browser, returnUrl);
 
@@ -256,12 +223,13 @@ public class AuthenticationSecurityTests
         Assert.Equal("/", response.Headers.Location?.OriginalString);
     }
 
-    /// <summary>Logout changes state only on an authenticated POST with a fresh antiforgery token.</summary>
+    /// <summary>Logout changes state only on an authenticated POST with a fresh antiforgery token,
+    /// and discards the server-side TestRail session so the cookie can no longer authenticate.</summary>
     [Fact]
     public async Task LogoutRequiresPostAndAntiforgery()
     {
         using var scope = await TestSettingsScope.CreateAsync(ConfiguredSettings());
-        using var factory = new SecurityWebApplicationFactory(scope);
+        using var factory = new SecurityWebApplicationFactory(scope) { TestRailResponder = _ => ValidUserResponse() };
         using var browser = factory.CreateBrowser();
         using var signIn = await SignInAsync(browser, "/");
         using var getLogout = await browser.GetAsync("/Logout");
@@ -281,32 +249,32 @@ public class AuthenticationSecurityTests
         Assert.Equal(HttpStatusCode.Redirect, protectedPage.StatusCode);
     }
 
-    /// <summary>Credential changes invalidate already-issued protected cookies.</summary>
+    /// <summary>Clearing the server-side credential store (e.g. simulating an app restart, since the
+    /// store is in-memory only) revokes every already-issued cookie, because the session each one
+    /// references no longer exists.</summary>
     [Fact]
-    public async Task CredentialRotationRevokesExistingAuthentication()
+    public async Task ClearingTheCredentialStoreRevokesExistingAuthentication()
     {
         using var scope = await TestSettingsScope.CreateAsync(ConfiguredSettings());
-        using var factory = new SecurityWebApplicationFactory(scope);
+        using var factory = new SecurityWebApplicationFactory(scope) { TestRailResponder = _ => ValidUserResponse() };
         using var browser = factory.CreateBrowser();
         // Target "/" rather than "/Setup": once the TestRail connection is configured, "/Setup" is
         // publicly routable-but-redirected (not authentication-gated), so it is no longer a valid
-        // probe for cookie/session invalidation -- "/" remains behind the administrator policy.
+        // probe for cookie/session invalidation -- "/" remains behind the authenticated-user policy.
         using var signIn = await SignInAsync(browser, "/");
-        var changed = ConfiguredSettings();
-        changed.SetupPassword = "changed-fixture-password";
-        await scope.Settings.SaveSettingsAsync(changed);
+        factory.Services.GetRequiredService<TestRailCredentialStore>().Clear();
 
         using var response = await browser.GetAsync("/");
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.StartsWith("https://localhost/Login", response.Headers.Location?.AbsoluteUri);
     }
 
-    /// <summary>Repeated attempts are limited without leaking credentials or contacting TestRail.</summary>
+    /// <summary>Repeated attempts are rate-limited and never leak the attempted credentials back to the caller.</summary>
     [Fact]
     public async Task RepeatedFailedSignInsAreRateLimited()
     {
         using var scope = await TestSettingsScope.CreateAsync(ConfiguredSettings());
-        using var factory = new SecurityWebApplicationFactory(scope);
+        using var factory = new SecurityWebApplicationFactory(scope) { TestRailResponder = _ => InvalidCredentialsResponse() };
         using var browser = factory.CreateBrowser();
         using var login = await browser.GetAsync("/Login");
         var token = Token(await login.Content.ReadAsStringAsync());
@@ -320,7 +288,10 @@ public class AuthenticationSecurityTests
             }));
             Assert.Equal(attempt < 10 ? HttpStatusCode.Unauthorized : HttpStatusCode.TooManyRequests, response.StatusCode);
         }
-        Assert.Equal(0, factory.OutboundRequests);
+
+        // The rate limiter rejects the 11th attempt before it reaches the handler, so only the
+        // first 10 (each independently and safely rejected by TestRail) reach the connection.
+        Assert.Equal(10, factory.OutboundRequests);
     }
 
     /// <summary>Cookie lifetimes are bounded and Azure DevOps redirects cannot forward requests.</summary>
@@ -349,9 +320,21 @@ public class AuthenticationSecurityTests
         BaseUrl = "https://testrail.invalid",
         Username = "fixture@example.invalid",
         ApiKey = "fixture-only-token",
-        SetupUsername = Username,
-        SetupPassword = Password,
         ShowConsole = true
+    };
+
+    /// <summary>A canned TestRail success response for the signed-in fixture user.</summary>
+    private static HttpResponseMessage ValidUserResponse() => new(HttpStatusCode.OK)
+    {
+        Content = new StringContent(
+            """{"id":1,"name":"Fixture User","email":"fixture-user@example.test","role_id":1,"is_active":true,"is_admin":true}""",
+            Encoding.UTF8, "application/json")
+    };
+
+    /// <summary>A canned TestRail rejection response for an invalid credential attempt.</summary>
+    private static HttpResponseMessage InvalidCredentialsResponse() => new(HttpStatusCode.Unauthorized)
+    {
+        Content = new StringContent("""{"error":"Invalid or missing API key or password"}""", Encoding.UTF8, "application/json")
     };
 
     /// <summary>Submits a real Razor Pages antiforgery token with a login attempt.</summary>

@@ -48,6 +48,8 @@ builder.Services.AddRazorPages(options =>
 });
 builder.Services.AddSingleton<SettingsService>();
 builder.Services.AddHealthChecks();
+builder.Services.AddSingleton<TestRailCredentialStore>();
+builder.Services.AddScoped<CurrentTestRailCredentials>();
 builder.Services.AddScoped<AdminAuthenticationService>();
 builder.Services.AddScoped<AdminCookieEvents>();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -55,7 +57,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     {
         options.LoginPath = "/Login";
         options.AccessDeniedPath = "/Login";
-        options.Cookie.Name = "TestRailNavigator.Admin";
+        options.Cookie.Name = "TestRailNavigator.Auth";
         options.Cookie.HttpOnly = true;
         options.Cookie.IsEssential = true;
         options.Cookie.SameSite = SameSiteMode.Strict;
@@ -68,12 +70,15 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 builder.Services.AddAuthorization(options =>
 {
-    var administratorPolicy = new AuthorizationPolicyBuilder()
+    // Any signed-in user has already had their credentials validated live against TestRail (see
+    // AdminAuthenticationService); their own TestRail role/permissions -- not an app-level role --
+    // govern what they can do (see PermissionService), so the fallback policy only requires that
+    // they are authenticated.
+    var authenticatedPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
-        .RequireRole(AdminAuthenticationService.AdministratorRole)
         .Build();
-    options.AddPolicy(AdminAuthenticationService.AdministratorPolicy, administratorPolicy);
-    options.FallbackPolicy = administratorPolicy;
+    options.AddPolicy(AdminAuthenticationService.AdministratorPolicy, authenticatedPolicy);
+    options.FallbackPolicy = authenticatedPolicy;
 });
 builder.Services.AddRateLimiter(options =>
 {
