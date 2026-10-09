@@ -49,7 +49,7 @@ Start-Sleep -Seconds 3
 
 Write-Host "==> Warm-up request" -ForegroundColor Cyan
 try {
-    $r = Invoke-WebRequest -Uri 'https://localhost/GenerateCases' -UseBasicParsing -SkipCertificateCheck -TimeoutSec 180
+    $r = Invoke-WebRequest -Uri 'https://localhost/healthz' -UseBasicParsing -SkipCertificateCheck -TimeoutSec 180
     Write-Host "    HTTP $($r.StatusCode) - $($r.RawContentLength) bytes" -ForegroundColor Green
 } catch {
     Write-Warning "Warm-up failed: $($_.Exception.Message)"
