@@ -92,6 +92,37 @@ public class AuthenticationSecurityTests
         Assert.Equal(0, factory.OutboundRequests);
     }
 
+    /// <summary>Until the TestRail connection is configured, every authenticated page is gated to /Setup;
+    /// once configured, /Setup itself becomes unreachable and bounces to the dashboard.</summary>
+    [Fact]
+    public async Task ConnectionGateControlsSetupReachability()
+    {
+        var unconfigured = new TestRailSettings { SetupUsername = Username, SetupPassword = Password };
+        using (var scope = await TestSettingsScope.CreateAsync(unconfigured))
+        {
+            using var factory = new SecurityWebApplicationFactory(scope);
+            using var browser = factory.CreateBrowser();
+            using var signIn = await SignInAsync(browser, "/");
+            using var home = await browser.GetAsync("/");
+            Assert.Equal(HttpStatusCode.Redirect, home.StatusCode);
+            Assert.Equal("/Setup", home.Headers.Location?.OriginalString);
+
+            using var setup = await browser.GetAsync("/Setup");
+            Assert.Equal(HttpStatusCode.OK, setup.StatusCode);
+        }
+
+        using var configuredScope = await TestSettingsScope.CreateAsync(ConfiguredSettings());
+        using var configuredFactory = new SecurityWebApplicationFactory(configuredScope);
+        using var configuredBrowser = configuredFactory.CreateBrowser();
+        using var configuredSignIn = await SignInAsync(configuredBrowser, "/");
+        using var configuredHome = await configuredBrowser.GetAsync("/");
+        Assert.Equal(HttpStatusCode.OK, configuredHome.StatusCode);
+
+        using var configuredSetup = await configuredBrowser.GetAsync("/Setup");
+        Assert.Equal(HttpStatusCode.Redirect, configuredSetup.StatusCode);
+        Assert.Equal("/", configuredSetup.Headers.Location?.OriginalString);
+    }
+
     /// <summary>Sign-in is antiforgery-protected, generic on failure, and uses secure administrator cookies.</summary>
     [Fact]
     public async Task SignInRequiresAntiforgeryAndValidCredentials()
@@ -111,7 +142,7 @@ public class AuthenticationSecurityTests
         Assert.Contains("Invalid username or password.", await invalid.Content.ReadAsStringAsync());
         Assert.DoesNotContain("incorrect-fixture-password", await invalid.Content.ReadAsStringAsync());
 
-        using var valid = await SignInAsync(browser, "/Setup");
+        using var valid = await SignInAsync(browser, "/");
         Assert.Equal(HttpStatusCode.Redirect, valid.StatusCode);
         var cookie = Assert.Single(valid.Headers.GetValues("Set-Cookie"),
             value => value.StartsWith("TestRailNavigator.Admin=", StringComparison.Ordinal));
@@ -119,10 +150,15 @@ public class AuthenticationSecurityTests
         Assert.Contains("secure", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("samesite=strict", cookie, StringComparison.OrdinalIgnoreCase);
 
+        // The TestRail connection is configured in this fixture, so /Setup is no longer reachable.
         using var setup = await browser.GetAsync("/Setup");
-        Assert.Equal(HttpStatusCode.OK, setup.StatusCode);
-        Assert.True(setup.Headers.CacheControl?.NoStore);
-        Assert.Contains("Sign out", await setup.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.Redirect, setup.StatusCode);
+        Assert.Equal("/", setup.Headers.Location?.OriginalString);
+
+        using var home = await browser.GetAsync("/");
+        Assert.Equal(HttpStatusCode.OK, home.StatusCode);
+        Assert.True(home.Headers.CacheControl?.NoStore);
+        Assert.Contains("Sign out", await home.Content.ReadAsStringAsync());
     }
 
     /// <summary>The public login page cannot disclose the shared debug console.</summary>
@@ -177,16 +213,18 @@ public class AuthenticationSecurityTests
         using var scope = await TestSettingsScope.CreateAsync(ConfiguredSettings());
         using var factory = new SecurityWebApplicationFactory(scope);
         using var browser = factory.CreateBrowser();
-        using var signIn = await SignInAsync(browser, "/Setup");
+        using var signIn = await SignInAsync(browser, "/");
         using var getLogout = await browser.GetAsync("/Logout");
         Assert.Equal(HttpStatusCode.Redirect, getLogout.StatusCode);
         using var withoutToken = await browser.PostAsync("/Logout", new FormUrlEncodedContent([]));
         Assert.Equal(HttpStatusCode.BadRequest, withoutToken.StatusCode);
-        using var setup = await browser.GetAsync("/Setup");
-        Assert.Equal(HttpStatusCode.OK, setup.StatusCode);
+        // The TestRail connection is configured in this fixture, so /Setup is no longer reachable;
+        // the logout form's antiforgery token is on every authenticated page via the shared layout.
+        using var home = await browser.GetAsync("/");
+        Assert.Equal(HttpStatusCode.OK, home.StatusCode);
         using var logout = await browser.PostAsync("/Logout", new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            ["__RequestVerificationToken"] = Token(await setup.Content.ReadAsStringAsync())
+            ["__RequestVerificationToken"] = Token(await home.Content.ReadAsStringAsync())
         }));
         Assert.Equal(HttpStatusCode.Redirect, logout.StatusCode);
         using var protectedPage = await browser.GetAsync("/Setup");

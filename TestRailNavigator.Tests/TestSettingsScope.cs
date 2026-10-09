@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using TestRailNavigator.Services;
 
@@ -13,7 +14,7 @@ internal sealed class TestSettingsScope : IWebHostEnvironment, IDisposable
     {
         RootPath = Path.Combine(Path.GetTempPath(), "TestRailNavigator.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(RootPath);
-        Settings = new SettingsService(this);
+        Settings = new SettingsService(this, new ConfigurationBuilder().Build());
     }
 
     /// <summary>Gets the isolated content root.</summary>

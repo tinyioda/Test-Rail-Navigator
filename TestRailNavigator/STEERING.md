@@ -96,6 +96,21 @@ dotnet user-secrets set "TestRail:Username" "your-email@example.com"
 dotnet user-secrets set "TestRail:ApiKey" "your-api-key"
 ```
 
+## Development Process: Test-Driven Development (TDD)
+
+**TDD is mandatory for all code changes.** Follow red-green-refactor for every feature, bug fix, or behavior change:
+
+1. **Red** — Write a failing test in `TestRailNavigator.Tests` that captures the new or changed behavior before writing implementation code.
+2. **Green** — Write the minimal implementation code required to make the test pass.
+3. **Refactor** — Clean up the implementation (and tests) while keeping the suite green.
+
+Rules:
+- No production code change (new feature, bug fix, refactor with behavior impact) may be merged without an accompanying test that fails without the change and passes with it.
+- Security-relevant behavior (authentication, authorization, the Setup reachability gate, input validation, trust-boundary checks) must have regression tests in `AuthenticationSecurityTests.cs` or a similarly named security test file.
+- Run `dotnet test TestRailNavigator.slnx` before considering any change complete; the full suite must pass.
+- When fixing a bug, first add/adjust a test that reproduces it (it should fail), then fix the code.
+- Prefer testing through the public page/service surface (Razor Page handlers, service methods) over private implementation details.
+
 ## Coding Conventions
 
 ### General
@@ -177,12 +192,6 @@ Index (Projects)
 - [x] Add single-admin authentication/authorization
 - [ ] Add ability to update test results
 
-## Dependencies
-
-| Package | Purpose |
-|---------|---------|
-| `Microsoft.VisualStudio.Azure.Containers.Tools.Targets` | Docker support |
-
 ## Running the Application
 
 ```bash
@@ -191,12 +200,3 @@ dotnet run
 ```
 
 Navigate to `https://localhost:{port}` to view the application.
-
-## Docker Support
-
-The project includes Docker configuration. Build and run with:
-
-```bash
-docker build -t testrailnavigator .
-docker run -p 8080:80 testrailnavigator
-```
