@@ -8,15 +8,15 @@ using TestRailNavigator.Services;
 
 namespace TestRailNavigator.Pages;
 
-/// <summary>Signs in the provisioned administrator before any integration can be accessed.</summary>
+/// <summary>Signs in a TestRail user, validated live against TestRail, before any integration can be accessed.</summary>
 [EnableRateLimiting(AdminAuthenticationService.LoginRateLimitPolicy)]
 public class LoginModel(AdminAuthenticationService authentication, ILogger<LoginModel> logger) : PageModel
 {
-    /// <summary>Gets or sets the administrator username.</summary>
+    /// <summary>Gets or sets the TestRail username.</summary>
     [BindProperty, Required, StringLength(128)]
     public string? Username { get; set; }
 
-    /// <summary>Gets or sets the administrator password supplied for this request only.</summary>
+    /// <summary>Gets or sets the TestRail password (or personal API key), supplied for this request only.</summary>
     [BindProperty, Required, StringLength(1024), DataType(DataType.Password)]
     public string? Password { get; set; }
 
@@ -63,7 +63,7 @@ public class LoginModel(AdminAuthenticationService authentication, ILogger<Login
         ModelState.Remove(nameof(Password));
         if (principal is null)
         {
-            logger.LogWarning("Administrator sign-in rejected.");
+            logger.LogWarning("Sign-in rejected.");
             ErrorMessage = "Invalid username or password.";
             Response.StatusCode = StatusCodes.Status401Unauthorized;
             return Page();
@@ -73,7 +73,7 @@ public class LoginModel(AdminAuthenticationService authentication, ILogger<Login
             CookieAuthenticationDefaults.AuthenticationScheme,
             principal,
             new AuthenticationProperties { IsPersistent = false, AllowRefresh = true });
-        logger.LogInformation("Administrator signed in.");
+        logger.LogInformation("User signed in.");
         return RedirectLocally();
     }
 

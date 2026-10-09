@@ -59,21 +59,18 @@ TestRailNavigator/
 
 ### Application Authentication
 
-All data pages and handlers require the single application's administrator identity, using
-ASP.NET Core cookie authentication and a fallback administrator policy. Setup is administrator-only.
-Login, Error, static assets, and the minimal `/healthz` endpoint are the only anonymous surfaces.
+All data pages and handlers require a signed-in user. Users sign in with their own TestRail
+username/password (or personal API key); the credentials are validated live against the configured
+TestRail connection and are never accepted or compared locally. On success, each user's own TestRail
+role/permissions govern what they can do inside the app (see `PermissionService`) — there is no
+separate app-level administrator account. Login, Error, static assets, and the minimal `/healthz`
+endpoint are the only anonymous surfaces; Setup is anonymous only until the TestRail connection is
+configured (see the connection gate in `Program.cs`).
 
-Use existing `SetupUsername` / `SetupPassword` values in `testrail-settings.json`, or provision
-`TestRail:SetupUsername` / `TestRail:SetupPassword` through .NET configuration (environment variables
-use double underscores). Missing credentials must fail closed, never enable anonymous Setup.
-TestRail's shared integration role is not a substitute for authenticating the Navigator caller.
-
-### Azure DevOps Trust Boundary
-
-`AzureDevOpsBaseUrl` is an administrator-approved HTTPS organization or collection root.
-Both it and `AzureDevOpsPat` are required. Validate the origin, port, and organization/collection
-before attaching the PAT to any request, including child links. Do not follow redirects or infer
-a trusted destination from a user-supplied work-item URL.
+Sign-in requires the TestRail connection (`BaseUrl`/`Username`/`ApiKey`) to already be configured via
+Setup, since that is what is used to reach TestRail for live credential validation. Missing
+configuration must fail closed (sign-in disabled), never fall back to a local/offline credential
+check.
 
 ### TestRail Settings
 
@@ -189,7 +186,7 @@ Index (Projects)
 - [ ] Add search/filter functionality
 - [ ] Add test result details page
 - [ ] Add caching for API responses
-- [x] Add single-admin authentication/authorization
+- [x] Add per-user TestRail authentication/authorization
 - [ ] Add ability to update test results
 
 ## Running the Application

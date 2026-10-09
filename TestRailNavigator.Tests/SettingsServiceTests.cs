@@ -105,7 +105,6 @@ public class SettingsServiceTests
             BaseUrl = "https://saved.example",
             Username = "saved-user",
             ApiKey = "saved-key",
-            AzureDevOpsBaseUrl = "https://dev.azure.com/jsi",
             AllowWrites = false
         };
 
@@ -119,7 +118,6 @@ public class SettingsServiceTests
         Assert.Equal("saved-key", appSettingsJson["TestRail"]?["ApiKey"]?.GetValue<string>());
 
         var legacyJson = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(environment.RootPath, "testrail-settings.json")))!.AsObject();
-        Assert.Equal("https://dev.azure.com/jsi", legacyJson["AzureDevOpsBaseUrl"]?.GetValue<string>());
         Assert.False(legacyJson["AllowWrites"]?.GetValue<bool>() ?? true);
         Assert.False(legacyJson.ContainsKey("BaseUrl"));
         Assert.False(legacyJson.ContainsKey("Username"));

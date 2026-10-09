@@ -18,6 +18,13 @@ internal sealed class SecurityWebApplicationFactory(
     /// <summary>Gets the number of unexpected outbound integration requests.</summary>
     public int OutboundRequests => _outboundRequests;
 
+    /// <summary>
+    /// Optional canned-response function for TestRail requests, used to simulate a successful or
+    /// failed live credential validation during sign-in. Left null (the default) for scenarios that
+    /// must never actually reach TestRail, in which case any TestRail request fails the test.
+    /// </summary>
+    public Func<HttpRequestMessage, HttpResponseMessage?>? TestRailResponder { get; set; }
+
     /// <inheritdoc />
     protected override IHost CreateHost(IHostBuilder builder)
     {
@@ -37,25 +44,19 @@ internal sealed class SecurityWebApplicationFactory(
         builder.UseContentRoot(scope.RootPath);
         builder.ConfigureAppConfiguration((_, config) =>
         {
-            var settings = new Dictionary<string, string?>
+            if (configuration is not null)
             {
-                ["TestRail:SetupUsername"] = null,
-                ["TestRail:SetupPassword"] = null
-            };
-            foreach (var (key, value) in configuration ?? new Dictionary<string, string?>())
-            {
-                settings[key] = value;
+                config.AddInMemoryCollection(configuration);
             }
-            config.AddInMemoryCollection(settings);
         });
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<SettingsService>();
             services.AddSingleton(scope.Settings);
             services.AddHttpClient<TestRailClient>()
-                .AddHttpMessageHandler(CreateGuard);
-            services.AddHttpClient<AzureDevOpsService>()
-                .AddHttpMessageHandler(CreateGuard);
+                .AddHttpMessageHandler(() => new FakeTestRailHandler(
+                    request => TestRailResponder?.Invoke(request),
+                    () => Interlocked.Increment(ref _outboundRequests)));
         });
     }
 
@@ -66,8 +67,5 @@ internal sealed class SecurityWebApplicationFactory(
         AllowAutoRedirect = false,
         HandleCookies = true
     });
-
-    /// <summary>Prevents a regression from sending even dummy integration credentials to a network.</summary>
-    private RejectExternalRequestsHandler CreateGuard() =>
-        new(() => Interlocked.Increment(ref _outboundRequests));
 }
+

@@ -1,94 +1,101 @@
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using TestRailNavigator.Models;
 
 namespace TestRailNavigator.Services;
 
 /// <summary>
-/// Authenticates the single administrator using deployment configuration or existing Setup credentials.
+/// Authenticates application users by validating their credentials live against the configured
+/// TestRail instance, rather than a single shared administrator account. Any TestRail user whose
+/// username/password (or personal API key) TestRail accepts can sign in; their own TestRail role
+/// then governs what they can do inside the app (see <see cref="PermissionService"/>).
 /// </summary>
-public sealed class AdminAuthenticationService(SettingsService settingsService, IConfiguration configuration)
+public sealed class AdminAuthenticationService(
+    SettingsService settingsService,
+    TestRailClient testRailClient,
+    TestRailCredentialStore credentialStore,
+    CurrentTestRailCredentials currentCredentials)
 {
-    /// <summary>Gets the role assigned to the application's single administrator.</summary>
-    public const string AdministratorRole = "Administrator";
-
-    /// <summary>Gets the policy required for administrative pages.</summary>
-    public const string AdministratorPolicy = "Administrator";
+    /// <summary>Gets the policy required for application pages (any signed-in TestRail user).</summary>
+    public const string AdministratorPolicy = "Authenticated";
 
     /// <summary>Gets the rate-limiting policy applied to sign-in attempts.</summary>
     public const string LoginRateLimitPolicy = "AdminLogin";
 
-    private const string CredentialVersionClaim = "credential-version";
+    private const string SessionTokenClaim = "trn-session";
 
-    /// <summary>Determines whether both administrator credentials have been provisioned.</summary>
-    public async Task<bool> IsConfiguredAsync() => await GetCredentialsAsync() is not null;
+    /// <summary>Determines whether the TestRail connection is configured, which is required before anyone can sign in.</summary>
+    public async Task<bool> IsConfiguredAsync() => await settingsService.IsConfiguredAsync();
 
-    /// <summary>Authenticates supplied credentials without exposing their values in the identity.</summary>
+    /// <summary>
+    /// Validates the supplied username/password live against TestRail. On success, stores those
+    /// credentials server-side under a new opaque session token and returns a principal carrying
+    /// only that token (never the credentials themselves).
+    /// </summary>
     public async Task<ClaimsPrincipal?> AuthenticateAsync(string? username, string? password)
     {
-        var credentials = await GetCredentialsAsync();
-        if (credentials is null)
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password)
+            || !await IsConfiguredAsync())
         {
             return null;
         }
 
-        var validUsername = FixedTimeEquals(username, credentials.Value.Username);
-        var validPassword = FixedTimeEquals(password, credentials.Value.Password);
-        if (!validUsername || !validPassword)
+        currentCredentials.Username = username;
+        currentCredentials.Secret = password;
+        TestRailUser? user;
+        try
+        {
+            user = await testRailClient.GetCurrentUserAsync();
+        }
+        catch
+        {
+            user = null;
+        }
+        finally
+        {
+            currentCredentials.Username = null;
+            currentCredentials.Secret = null;
+        }
+
+        if (user is null)
         {
             return null;
         }
 
+        var token = credentialStore.Store(username, password);
         var identity = new ClaimsIdentity(
         [
-            new Claim(ClaimTypes.Name, credentials.Value.Username),
-            new Claim(ClaimTypes.Role, AdministratorRole),
-            new Claim(CredentialVersionClaim, GetCredentialVersion(credentials.Value))
+            new Claim(ClaimTypes.Name, user.Name ?? username),
+            new Claim(SessionTokenClaim, token)
         ], CookieAuthenticationDefaults.AuthenticationScheme);
         return new ClaimsPrincipal(identity);
     }
 
-    /// <summary>Rejects identities issued before administrator credentials changed or were removed.</summary>
-    public async Task<bool> IsPrincipalValidAsync(ClaimsPrincipal? principal)
+    /// <summary>Rejects identities whose server-side credential session no longer exists (signed out,
+    /// or the app restarted since they signed in).</summary>
+    public Task<bool> IsPrincipalValidAsync(ClaimsPrincipal? principal)
     {
-        var credentials = await GetCredentialsAsync();
-        return credentials is not null
-            && principal?.Identity?.IsAuthenticated == true
-            && principal.IsInRole(AdministratorRole)
-            && FixedTimeEquals(principal.Identity.Name, credentials.Value.Username)
-            && FixedTimeEquals(
-                principal.FindFirstValue(CredentialVersionClaim),
-                GetCredentialVersion(credentials.Value));
+        var valid = principal?.Identity?.IsAuthenticated == true
+            && credentialStore.Contains(principal.FindFirstValue(SessionTokenClaim));
+        return Task.FromResult(valid);
     }
 
-    /// <summary>Resolves deployment-provided credentials before falling back to the settings file.</summary>
-    private async Task<(string Username, string Password)?> GetCredentialsAsync()
+    /// <summary>Removes the server-side credential session bound to the given principal, if any.</summary>
+    public void EndSession(ClaimsPrincipal? principal) =>
+        credentialStore.Remove(principal?.FindFirstValue(SessionTokenClaim));
+
+    /// <summary>
+    /// Populates <see cref="CurrentTestRailCredentials"/> for the current request from the signed-in
+    /// principal's server-side session, so <see cref="TestRailClient"/> uses that user's own
+    /// credentials instead of the configured service account.
+    /// </summary>
+    public void ApplySessionCredentials(ClaimsPrincipal? principal)
     {
-        var username = configuration["TestRail:SetupUsername"];
-        var password = configuration["TestRail:SetupPassword"];
-        if (username is null || password is null)
+        var credentials = credentialStore.Get(principal?.FindFirstValue(SessionTokenClaim));
+        if (credentials is not null)
         {
-            var settings = await settingsService.GetSettingsAsync();
-            username ??= settings?.SetupUsername;
-            password ??= settings?.SetupPassword;
+            currentCredentials.Username = credentials.Value.Username;
+            currentCredentials.Secret = credentials.Value.Secret;
         }
-
-        return string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password)
-            ? null
-            : (username, password);
     }
-
-    /// <summary>Compares fixed-length hashes without revealing which credential differed.</summary>
-    private static bool FixedTimeEquals(string? supplied, string expected)
-    {
-        var suppliedHash = SHA256.HashData(Encoding.UTF8.GetBytes(supplied ?? string.Empty));
-        var expectedHash = SHA256.HashData(Encoding.UTF8.GetBytes(expected));
-        return CryptographicOperations.FixedTimeEquals(suppliedHash, expectedHash);
-    }
-
-    /// <summary>Creates an unambiguous credential stamp stored only inside the protected auth ticket.</summary>
-    private static string GetCredentialVersion((string Username, string Password) credentials) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
-            $"{credentials.Username.Length}:{credentials.Username}{credentials.Password}")));
 }

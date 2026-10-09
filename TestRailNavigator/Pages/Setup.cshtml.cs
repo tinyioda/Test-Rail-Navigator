@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using TestRailNavigator.Services;
@@ -7,9 +6,12 @@ namespace TestRailNavigator.Pages;
 
 /// <summary>
 /// Page model for the Setup page to configure TestRail connection.
-/// Restricted to the authenticated application administrator.
+/// Anonymously reachable (see Program.cs page conventions) so a fresh deployment with no
+/// administrator account yet can still provision the TestRail connection. Reachability is
+/// enforced entirely by the connection-gate middleware in Program.cs: this page is only ever
+/// actually served while the connection is unconfigured; once configured, the gate redirects
+/// every request for it (authenticated or not) to the dashboard before it is reached.
 /// </summary>
-[Authorize(Policy = AdminAuthenticationService.AdministratorPolicy)]
 public class SetupModel : PageModel
 {
     private readonly SettingsService _settingsService;
@@ -73,40 +75,9 @@ public class SetupModel : PageModel
             return Page();
         }
 
-        // Preserve existing Setup credentials when saving — the login fields are not on the settings form.
+        // Preserve the existing database encryption password when saving — it's not on the settings form.
         var existing = await _settingsService.GetSettingsAsync();
-        Settings.SetupUsername = existing?.SetupUsername ?? string.Empty;
-        Settings.SetupPassword = existing?.SetupPassword ?? string.Empty;
         Settings.DatabasePassword = existing?.DatabasePassword ?? string.Empty;
-        if (existing is not null)
-        {
-            // Preserve the existing Azure DevOps PAT when the user submits an empty value,
-            // so that re-saving the form without re-typing the token does not clear it.
-            if (string.IsNullOrWhiteSpace(Settings.AzureDevOpsPat))
-            {
-                Settings.AzureDevOpsPat = existing.AzureDevOpsPat;
-            }
-
-            // Same preserve-on-blank behavior for the Jira API token.
-            if (string.IsNullOrWhiteSpace(Settings.JiraApiToken))
-            {
-                Settings.JiraApiToken = existing.JiraApiToken;
-            }
-
-            // Same preserve-on-blank behavior for the OpenAI-compatible API key.
-            if (string.IsNullOrWhiteSpace(Settings.OpenAiApiKey))
-            {
-                Settings.OpenAiApiKey = existing.OpenAiApiKey;
-            }
-        }
-
-        if ((!string.IsNullOrWhiteSpace(Settings.AzureDevOpsBaseUrl)
-                || !string.IsNullOrWhiteSpace(Settings.AzureDevOpsPat))
-            && !AzureDevOpsUrlPolicy.TryGetBaseUri(Settings.AzureDevOpsBaseUrl, out _))
-        {
-            ErrorMessage = "Azure DevOps requires an approved HTTPS organization or collection base URL, without a query, fragment, or embedded credentials.";
-            return Page();
-        }
 
         try
         {

@@ -14,17 +14,14 @@
                 @if (!Model.IsConfigured)
                 {
                     <div class="alert alert-warning mb-0" role="alert">
-                        <p class="fw-semibold">Administrator credentials are not configured.</p>
-                        <p>Access is disabled until an administrator provisions
-                            <code>TestRail:SetupUsername</code> and <code>TestRail:SetupPassword</code>
-                            through server configuration or user secrets, or sets
-                            <code>SetupUsername</code> and <code>SetupPassword</code> in the existing settings file.</p>
-                        <p class="mb-0">Restart the app after changing the settings file. There is no public account-registration flow.</p>
+                        <p class="fw-semibold">TestRail connection is not configured.</p>
+                        <p>Sign-in is disabled until an administrator configures the TestRail URL and API
+                            key on the <a asp-page="/Setup">Setup</a> page.</p>
                     </div>
                 }
                 else
                 {
-                    <p id="login-help" class="text-muted">Use the administrator credentials previously used for Setup.</p>
+                    <p id="login-help" class="text-muted">Sign in with your own TestRail username and password.</p>
                     @if (!string.IsNullOrEmpty(Model.ErrorMessage))
                     {
                         <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>

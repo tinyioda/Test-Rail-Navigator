@@ -76,8 +76,8 @@ public class SettingsService
     }
 
     /// <summary>
-    /// Overlays the <c>TestRail:BaseUrl</c>/<c>Username</c>/<c>ApiKey</c> configuration values, when present,
-    /// onto the given settings instance.
+    /// Overlays the <c>TestRail:BaseUrl</c>/<c>Username</c>/<c>ApiKey</c> configuration values,
+    /// when present, onto the given settings instance.
     /// </summary>
     private void ApplyConnectionFromConfiguration(TestRailSettings settings)
     {
@@ -93,9 +93,9 @@ public class SettingsService
 
     /// <summary>
     /// Saves the TestRail settings. The connection fields (<see cref="TestRailSettings.BaseUrl"/>,
-    /// <see cref="TestRailSettings.Username"/>, <see cref="TestRailSettings.ApiKey"/>) are written to the
-    /// <c>TestRail</c> section of <c>appsettings.json</c> at runtime; all other fields continue to persist
-    /// to <c>testrail-settings.json</c>.
+    /// <see cref="TestRailSettings.Username"/>, <see cref="TestRailSettings.ApiKey"/>) are written to
+    /// <c>appsettings.json</c> at runtime; all other fields continue to persist to
+    /// <c>testrail-settings.json</c>.
     /// </summary>
     /// <param name="settings">The settings to save.</param>
     public async Task SaveSettingsAsync(TestRailSettings settings)
@@ -121,8 +121,8 @@ public class SettingsService
     }
 
     /// <summary>
-    /// Merges the TestRail connection values into <c>appsettings.json</c> on disk, preserving every other
-    /// section (Logging, AllowedHosts, etc.) untouched.
+    /// Merges the TestRail connection values into <c>appsettings.json</c> on disk,
+    /// preserving every other section (Logging, AllowedHosts, etc.) untouched.
     /// </summary>
     private async Task WriteConnectionToAppSettingsAsync(TestRailSettings settings)
     {

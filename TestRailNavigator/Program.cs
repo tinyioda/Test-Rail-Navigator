@@ -35,6 +35,11 @@ builder.Services.AddRazorPages(options =>
 {
     options.Conventions.AllowAnonymousToPage("/Login");
     options.Conventions.AllowAnonymousToPage("/Error");
+    // Setup must be reachable before any administrator account can exist (there is nothing to sign
+    // in with yet on a fresh deployment). It is still never exposed once the TestRail connection is
+    // configured: the connection gate below redirects every request away from it in that case,
+    // authenticated or not, so this does not weaken the configured-and-running application.
+    options.Conventions.AllowAnonymousToPage("/Setup");
     options.Conventions.ConfigureFilter(new ResponseCacheAttribute
     {
         Location = ResponseCacheLocation.None,
@@ -43,6 +48,8 @@ builder.Services.AddRazorPages(options =>
 });
 builder.Services.AddSingleton<SettingsService>();
 builder.Services.AddHealthChecks();
+builder.Services.AddSingleton<TestRailCredentialStore>();
+builder.Services.AddScoped<CurrentTestRailCredentials>();
 builder.Services.AddScoped<AdminAuthenticationService>();
 builder.Services.AddScoped<AdminCookieEvents>();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -50,7 +57,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     {
         options.LoginPath = "/Login";
         options.AccessDeniedPath = "/Login";
-        options.Cookie.Name = "TestRailNavigator.Admin";
+        options.Cookie.Name = "TestRailNavigator.Auth";
         options.Cookie.HttpOnly = true;
         options.Cookie.IsEssential = true;
         options.Cookie.SameSite = SameSiteMode.Strict;
@@ -63,12 +70,15 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 builder.Services.AddAuthorization(options =>
 {
-    var administratorPolicy = new AuthorizationPolicyBuilder()
+    // Any signed-in user has already had their credentials validated live against TestRail (see
+    // AdminAuthenticationService); their own TestRail role/permissions -- not an app-level role --
+    // govern what they can do (see PermissionService), so the fallback policy only requires that
+    // they are authenticated.
+    var authenticatedPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
-        .RequireRole(AdminAuthenticationService.AdministratorRole)
         .Build();
-    options.AddPolicy(AdminAuthenticationService.AdministratorPolicy, administratorPolicy);
-    options.FallbackPolicy = administratorPolicy;
+    options.AddPolicy(AdminAuthenticationService.AdministratorPolicy, authenticatedPolicy);
+    options.FallbackPolicy = authenticatedPolicy;
 });
 builder.Services.AddRateLimiter(options =>
 {
@@ -96,16 +106,6 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 builder.Services.AddHttpClient<TestRailClient>();
-builder.Services.AddHttpClient<AzureDevOpsService>()
-    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
-builder.Services.AddHttpClient<ICaseEnrichmentService, OpenAiCompatibleEnrichmentService>(c =>
-{
-    // Chat completions can take a while for larger stories; 2 minutes is a reasonable upper bound
-    // for a single AC -> structured case round trip.
-    c.Timeout = TimeSpan.FromMinutes(2);
-});
-builder.Services.AddScoped<IIssueTrackerClient>(sp => sp.GetRequiredService<AzureDevOpsService>());
-builder.Services.AddScoped<HierarchyGenerator>();
 builder.Services.AddSingleton<ConsoleLogService>();
 builder.Services.AddScoped<PermissionService>();
 
@@ -161,6 +161,30 @@ app.UseHttpsRedirection();
 
 app.UseRouting();
 
+// Before any authentication/authorization runs: until the TestRail connection is configured, the
+// only reachable page is /Setup (plus Error/healthz/static assets). There is no administrator
+// account to sign in with yet on a fresh deployment, so this must not depend on authentication --
+// every other path, including /Login, redirects straight to /Setup.
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path;
+    if (path.StartsWithSegments("/Error") || path.StartsWithSegments("/healthz")
+        || path.Value?.Contains('.') == true)
+    {
+        await next();
+        return;
+    }
+
+    var settingsService = context.RequestServices.GetRequiredService<SettingsService>();
+    if (!await settingsService.IsConfiguredAsync() && !path.StartsWithSegments("/Setup"))
+    {
+        context.Response.Redirect("/Setup");
+        return;
+    }
+
+    await next();
+});
+
 app.UseAuthentication();
 app.UseRateLimiter();
 
@@ -187,31 +211,21 @@ app.Use(async (context, next) =>
 
 app.UseAuthorization();
 
-// Gate every authenticated page behind the TestRail connection being configured:
-// until BaseUrl/Username/ApiKey are set, only /Setup is reachable; once configured,
-// /Setup is no longer reachable by anyone (including the administrator) and visitors
-// are bounced to the dashboard. Login/Error/healthz and static assets are exempt.
+// After authorization: once the TestRail connection is configured, /Setup itself becomes
+// unreachable for everyone, including the administrator, and bounces to the dashboard instead.
+// (The unconfigured direction is handled above, before authentication, since there may be no
+// administrator account yet to authenticate.)
 app.Use(async (context, next) =>
 {
     var path = context.Request.Path;
-    if (path.StartsWithSegments("/Login") || path.StartsWithSegments("/Error")
-        || path.StartsWithSegments("/healthz") || path.Value?.Contains('.') == true)
+    if (!path.StartsWithSegments("/Setup"))
     {
         await next();
         return;
     }
 
     var settingsService = context.RequestServices.GetRequiredService<SettingsService>();
-    var isConfigured = await settingsService.IsConfiguredAsync();
-    var isSetupPath = path.StartsWithSegments("/Setup");
-
-    if (!isConfigured && !isSetupPath)
-    {
-        context.Response.Redirect("/Setup");
-        return;
-    }
-
-    if (isConfigured && isSetupPath)
+    if (await settingsService.IsConfiguredAsync())
     {
         context.Response.Redirect("/");
         return;

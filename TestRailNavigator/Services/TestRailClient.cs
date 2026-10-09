@@ -12,6 +12,7 @@ public class TestRailClient
 {
     private readonly HttpClient _httpClient;
     private readonly SettingsService _settingsService;
+    private readonly CurrentTestRailCredentials? _currentCredentials;
     private readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
     private readonly SemaphoreSlim _configLock = new(1, 1);
     private string _apiBase = string.Empty;
@@ -22,10 +23,17 @@ public class TestRailClient
     /// </summary>
     /// <param name="httpClient">The HTTP client instance.</param>
     /// <param name="settingsService">The settings service.</param>
-    public TestRailClient(HttpClient httpClient, SettingsService settingsService)
+    /// <param name="currentCredentials">
+    /// The signed-in user's own TestRail credentials for this request, if any. When present these
+    /// take priority over the configured service account, so TestRail's own permissions for that
+    /// user govern what the app can do on their behalf. Optional for callers (e.g. unit tests) that
+    /// only ever need the configured service account.
+    /// </param>
+    public TestRailClient(HttpClient httpClient, SettingsService settingsService, CurrentTestRailCredentials? currentCredentials = null)
     {
         _httpClient = httpClient;
         _settingsService = settingsService;
+        _currentCredentials = currentCredentials;
         _httpClient.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/json"));
     }
@@ -54,8 +62,18 @@ public class TestRailClient
 
             _apiBase = $"{settings.BaseUrl.TrimEnd('/')}/index.php?/api/v2/";
 
+            // Prefer the signed-in user's own TestRail credentials, when present, so TestRail's own
+            // permissions for that user govern what the app can do on their behalf. Falls back to the
+            // configured service account for unauthenticated contexts (e.g. the Setup page).
+            var username = string.IsNullOrWhiteSpace(_currentCredentials?.Username)
+                ? settings.Username
+                : _currentCredentials.Username;
+            var secret = string.IsNullOrWhiteSpace(_currentCredentials?.Secret)
+                ? settings.ApiKey
+                : _currentCredentials.Secret;
+
             var credentials = Convert.ToBase64String(
-                Encoding.ASCII.GetBytes($"{settings.Username}:{settings.ApiKey}"));
+                Encoding.ASCII.GetBytes($"{username}:{secret}"));
             _httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Basic", credentials);
 
