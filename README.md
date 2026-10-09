@@ -6,7 +6,6 @@ TestRail Navigator connects to your TestRail instance via its REST API and provi
 
 ![.NET 10](https://img.shields.io/badge/.NET-10.0-purple)
 ![Razor Pages](https://img.shields.io/badge/UI-Razor%20Pages-blue)
-![Docker](https://img.shields.io/badge/Docker-supported-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ---
@@ -21,7 +20,6 @@ TestRail Navigator connects to your TestRail instance via its REST API and provi
 - **In-App Setup** — Configure your TestRail connection directly from the browser (no config files required)
 - **Console Log** — Development-mode console window for debugging API calls
 - **Create Projects** — Spin up new TestRail projects without leaving the app
-- **Docker Ready** — Ship it anywhere with the included multi-stage Dockerfile
 
 ## Entity Hierarchy
 
@@ -44,7 +42,6 @@ Project
 | Styling | Bootstrap 5 + Bootstrap Icons |
 | HTTP Client | `HttpClient` via `IHttpClientFactory` |
 | Serialization | `System.Text.Json` |
-| Containerization | Docker (multi-stage build) |
 
 ## Quick Start
 
@@ -66,18 +63,6 @@ dotnet run --environment Development
 
 Navigate to the address printed by `dotnet run`. Sign in with the administrator credentials, then open **Setup** to configure the TestRail connection. HTTP is supported for local Development only; use HTTPS for deployed instances.
 
-### Run with Docker
-
-```bash
-docker build -f TestRailNavigator/Dockerfile -t testrail-navigator .
-docker run -p 127.0.0.1:8080:8080 \
-  -e TestRail__SetupUsername=admin \
-  -e TestRail__SetupPassword="<choose-a-strong-password>" \
-  testrail-navigator
-```
-
-For production, expose the container through a correctly configured HTTPS reverse proxy. Authentication cookies are always Secure outside Development. Provision writable data and Data Protection key storage for the non-root container user; set `DataProtection__KeysPath` to the persistent key directory. Do not expose an unconfigured instance or commit deployment credentials.
-
 ## Configuration
 
 TestRail Navigator is a **single-admin application**, not a per-user TestRail sign-in service. Anyone holding the administrator credentials has access to the configured integrations and Setup.
@@ -97,7 +82,9 @@ After signing in, navigate to `/Setup` and enter:
 - **Username** — Your TestRail email
 - **API Key** — Your TestRail API key
 
-Settings are persisted to `testrail-settings.json` (gitignored by default).
+These three values are written to the `TestRail` section of `appsettings.json` at runtime. All other Setup fields (Azure DevOps, Jira, AI enrichment, write mode, console) continue to persist to `testrail-settings.json` (gitignored by default).
+
+**`/Setup` is only reachable until the connection is configured.** Before `BaseUrl`/`Username`/`ApiKey` are set, every other page redirects there. Once set, `/Setup` itself redirects to the dashboard for everyone, including the administrator — to change the connection afterward, edit the `TestRail` section of `appsettings.json` directly (or clear it to reopen Setup).
 
 ### Azure DevOps
 
@@ -109,9 +96,15 @@ Configure both **Azure DevOps base URL** (`AzureDevOpsBaseUrl`) and a **PAT** (`
 
 Work-item links and hierarchy child links must match that origin, port, and organization/collection path. Other destinations are rejected before sending credentials. HTTP and redirects are not supported; use the server's canonical HTTPS URL.
 
-### Helm
+### IIS Deployment
 
-Supply `testrail.setupUsername` and `testrail.setupPassword` through a protected values file or deployment secret workflow. Azure DevOps generation additionally requires `testrail.azureDevOpsBaseUrl` and `testrail.azureDevOpsPat`. The chart mounts integration settings read-only: update those values through deployment configuration rather than saving Setup. Health probes use the anonymous `/healthz` endpoint, which does not query the integrations.
+Use the included `deploy.ps1` script to publish and deploy to an IIS site:
+
+```powershell
+.\deploy.ps1
+```
+
+This publishes the app in Release mode, takes the site offline, mirrors the output to `C:\inetpub\TestRailNavigator` (preserving `testrail-settings.json`, the SQLite database, and `logs\`), recycles the app pool, and performs a warm-up request. Configure the IIS site/app pool and provision `TestRail:SetupUsername`/`TestRail:SetupPassword` (and optional Azure DevOps settings) via environment variables on the app pool, or through `/Setup` after first sign-in. Health probes should target the anonymous `/healthz` endpoint.
 
 > ⚠️ Never commit credentials. The `.gitignore` excludes `testrail-settings.json` and `launchSettings.json`.
 
@@ -147,7 +140,6 @@ Test-Rail-Navigator/
 │   │       └── _ConsoleWindow.cshtml  # Dev console partial
 │   ├── wwwroot/                    # Static assets (CSS, JS, favicon)
 │   ├── Program.cs                  # DI & middleware configuration
-│   ├── Dockerfile                  # Multi-stage Docker build
 │   └── STEERING.md                 # Internal design & coding conventions
 ├── TestRailNavigator.Tests/        # Isolated security regression coverage
 └── TestRailNavigator.slnx          # Solution file
@@ -224,6 +216,6 @@ This project is open source. See the repository for license details.
 |---------|--------|----------------|
 | Unreleased | All data pages and handlers require single-admin sign-in, including read-only access. | Provision both existing Setup credentials or their `TestRail:` configuration overrides before upgrading. |
 | Unreleased | Production authentication cookies require HTTPS. | Configure TLS and correctly forward the request scheme through any trusted reverse proxy. |
-| Unreleased | Azure DevOps requires an approved HTTPS base URL as well as a PAT; HTTP and redirects are rejected. | Set `AzureDevOpsBaseUrl` in Setup or `testrail.azureDevOpsBaseUrl` in Helm, matching the origin, port, and case-sensitive organization/collection path of work-item links. |
+| Unreleased | Azure DevOps requires an approved HTTPS base URL as well as a PAT; HTTP and redirects are rejected. | Set `AzureDevOpsBaseUrl` in Setup, matching the origin, port, and case-sensitive organization/collection path of work-item links. |
 | Unreleased | Markdown generic attributes and unapproved advanced extensions are no longer interpreted. | Use supported headings, lists, tables, links, images, fenced code, strikethrough, and task lists instead of custom attributes. |
-| Unreleased | Data pages are no longer suitable for anonymous health probes. | Point monitoring at `/healthz`; the bundled Helm defaults already use it. |
+| Unreleased | Data pages are no longer suitable for anonymous health probes. | Point monitoring at `/healthz`. |

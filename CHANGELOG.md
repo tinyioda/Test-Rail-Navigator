@@ -17,13 +17,16 @@ All notable changes to this project are documented here using
 - An isolated security regression suite for authentication, Azure DevOps URL boundaries, and Markdown rendering.
 - An anonymous `/healthz` endpoint that reports application health without querying integrations.
 - A configurable `DataProtection:KeysPath` for persistent authentication key storage.
+- A `TestRail` section in `appsettings.json` storing the connection `BaseUrl`/`Username`/`ApiKey`, writable at runtime from the Setup page.
+- Unit test coverage for `AcceptanceCriteriaParser`, `HierarchyGenerator`, `SectionTreeBuilder`, `PermissionService`, `TestRailPermissions`, `SettingsService`, and `MarkdownRenderer` to satisfy the new Test-Driven Development process requirement.
 
 ### Changed
 
 - Reuse the existing Setup credentials for the entire application rather than protecting only Setup.
-- Add approved Azure DevOps base URL configuration to Setup and Helm.
+- Add approved Azure DevOps base URL configuration to Setup.
 - Surface hierarchy child-fetch failures instead of silently dropping failed work items.
-- Point Helm health probes at `/healthz` and document deployment and upgrade requirements.
+- Document `/healthz` for deployment and upgrade requirements.
+- Mandate Test-Driven Development (red-green-refactor) for all future code changes; see `STEERING.md`.
 
 ### Breaking
 
@@ -32,3 +35,4 @@ All notable changes to this project are documented here using
 - Azure DevOps generation now requires `AzureDevOpsBaseUrl` in addition to the PAT. Use the canonical HTTPS organization or collection URL, matching the origin, port, and case-sensitive organization/collection path of work-item links. HTTP and redirects are rejected.
 - Markdown generic attributes and unapproved advanced extensions are no longer interpreted. Use the supported standard formatting instead of custom HTML attributes.
 - Health monitors must use `/healthz` instead of authenticated data pages.
+- `/Setup` is only reachable before the TestRail connection is configured; once `TestRail:BaseUrl`/`Username`/`ApiKey` are set, it redirects to the dashboard for every user, including the administrator.

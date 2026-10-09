@@ -187,6 +187,39 @@ app.Use(async (context, next) =>
 
 app.UseAuthorization();
 
+// Gate every authenticated page behind the TestRail connection being configured:
+// until BaseUrl/Username/ApiKey are set, only /Setup is reachable; once configured,
+// /Setup is no longer reachable by anyone (including the administrator) and visitors
+// are bounced to the dashboard. Login/Error/healthz and static assets are exempt.
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path;
+    if (path.StartsWithSegments("/Login") || path.StartsWithSegments("/Error")
+        || path.StartsWithSegments("/healthz") || path.Value?.Contains('.') == true)
+    {
+        await next();
+        return;
+    }
+
+    var settingsService = context.RequestServices.GetRequiredService<SettingsService>();
+    var isConfigured = await settingsService.IsConfiguredAsync();
+    var isSetupPath = path.StartsWithSegments("/Setup");
+
+    if (!isConfigured && !isSetupPath)
+    {
+        context.Response.Redirect("/Setup");
+        return;
+    }
+
+    if (isConfigured && isSetupPath)
+    {
+        context.Response.Redirect("/");
+        return;
+    }
+
+    await next();
+});
+
 app.MapStaticAssets().AllowAnonymous();
 app.MapHealthChecks("/healthz").AllowAnonymous();
 app.MapRazorPages()
